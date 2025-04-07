@@ -6,19 +6,40 @@ from pathlib import Path
 
 def load_sequences_from_library():
     """Load and parse the melody library CSV file."""
-    csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library.csv"
-    df = pd.read_csv(csv_path)
-    
-    # Convert string representations of lists back to actual lists
-    df['Relative Pitch'] = df['Relative Pitch'].apply(ast.literal_eval)
-    df['Relative Rhythm'] = df['Relative Rhythm'].apply(ast.literal_eval)
-    
-    # Ensure 'Ruling' column exists (renamed from 'Category')
-    if 'Category' in df.columns and 'Ruling' not in df.columns:
-        df['Ruling'] = df['Category']
-        df = df.drop('Category', axis=1)
-    
-    return df
+    try:
+        # Get absolute path and verify file exists
+        csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(f"Cannot find file: {csv_path}")
+        
+        # Read CSV with explicit encoding and error handling
+        df = pd.read_csv(csv_path, encoding='utf-8', on_bad_lines='skip')
+        if df.empty:
+            raise ValueError("CSV file is empty")
+            
+        print(f"Successfully loaded {len(df)} rows from {csv_path}")
+        
+        # Convert string representations back to actual lists
+        df['Relative Pitch'] = df['Relative Pitch'].apply(ast.literal_eval)
+        df['Relative Rhythm'] = df['Relative Rhythm'].apply(ast.literal_eval)
+        
+        # Ensure 'Ruling' column exists
+        if 'Category' in df.columns and 'Ruling' not in df.columns:
+            df['Ruling'] = df['Category']
+            df = df.drop('Category', axis=1)
+        
+        return df
+        
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Please ensure melody_library.csv exists in MCIC_Dataset/MCIC_Preprocessed/")
+        raise
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        raise
+    except Exception as e:
+        print(f"Unexpected error loading CSV: {e}")
+        raise
 
 def compare_sequences(seq1, seq2):
     """
@@ -32,6 +53,16 @@ def create_cost_matrix(seq1_grams, seq2_grams):
     m, n = len(seq1_grams), len(seq2_grams)
     cost_matrix = np.zeros((m, n))
     
+    # Get n-gram length from first non-None sequence
+    ngram_length = None
+    for seq in seq1_grams + seq2_grams:
+        if seq is not None:
+            ngram_length = len(seq)
+            break
+            
+    if ngram_length is None:
+        return cost_matrix
+    
     for i in range(m):
         for j in range(n):
             # Count differences between two sequences
@@ -39,42 +70,33 @@ def create_cost_matrix(seq1_grams, seq2_grams):
                             if x != y)
             cost_matrix[i][j] = differences
     
-    return cost_matrix
+    return cost_matrix, ngram_length
 
-def log_transform_distances(distance_matrix):
+def calculate_log_transform_distance(value, max_d):
     """
-    Transform edit distances to similarity scores using exact mapping:
+    Calculate normalized similarity using logarithmic transform.
     
-    Edit Distance -> Similarity Value
-    0 -> 1.0000
-    1 -> 0.8074
-    2 -> 0.3870
-    3 -> 0.5000
-    4 -> 0.3955
-    5 -> 0.3083
-    6 -> 0.2334
-    7 -> 0.0000
+    Parameters:
+        value: The raw distance value
+        max_d: Maximum possible distance (length of n-gram sequence)
     """
-    # Define exact mapping values
-    mapping = {
-        0: 1.0000,
-        1: 0.8074,
-        2: 0.3870,
-        3: 0.5000,
-        4: 0.3955,
-        5: 0.3083,
-        6: 0.2334,
-        7: 0.0000
-    }
-    
-    # Create output matrix of same shape
+    try:
+        log_similarity = 1 - (np.log2(1 + value) / np.log2(1 + max_d))
+        return round(max(0.0, min(1.0, log_similarity)), 4)
+    except:
+        return 0.0
+
+def log_transform_distances(distance_matrix, ngram_length):
+    """Transform edit distances to similarity scores using logarithmic transform."""
     similarity_matrix = np.zeros_like(distance_matrix, dtype=float)
     
-    # Apply mapping to each element
+    # Use actual n-gram length as max_d
+    max_distance = ngram_length
+    
     for i in range(distance_matrix.shape[0]):
         for j in range(distance_matrix.shape[1]):
-            distance = int(distance_matrix[i, j])
-            similarity_matrix[i, j] = mapping[distance]
+            distance = distance_matrix[i, j]
+            similarity_matrix[i, j] = calculate_log_transform_distance(distance, max_distance)
     
     return similarity_matrix
 
@@ -221,13 +243,13 @@ def analyze_case(df, case_number, show_visualizations=False):
     seq1_rhythm = case_data.loc[0, 'Relative Rhythm']
     seq2_rhythm = case_data.loc[1, 'Relative Rhythm']
     
-    # Create cost matrices
-    pitch_distances = create_cost_matrix(seq1_pitch, seq2_pitch)
-    rhythm_distances = create_cost_matrix(seq1_rhythm, seq2_rhythm)
+    # Create cost matrices with n-gram lengths
+    pitch_distances, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
+    rhythm_distances, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
     
-    # Transform to similarity scores [0,1]
-    pitch_similarities = log_transform_distances(pitch_distances)
-    rhythm_similarities = log_transform_distances(rhythm_distances)
+    # Transform to similarity scores [0,1] using actual n-gram lengths
+    pitch_similarities = log_transform_distances(pitch_distances, pitch_ngram_len)
+    rhythm_similarities = log_transform_distances(rhythm_distances, rhythm_ngram_len)
     
     # Calculate final scores with consistent decimal places
     pitch_similarity = round(np.mean(np.diagonal(pitch_similarities)), 4)
@@ -287,13 +309,15 @@ def analyze_all_cases(df, show_plots=False):
         seq1_rhythm = case_data.loc[0, 'Relative Rhythm']
         seq2_rhythm = case_data.loc[1, 'Relative Rhythm']
         
-        # Create cost matrices and calculate scores
-        pitch_matrix = create_cost_matrix(seq1_pitch, seq2_pitch)
-        rhythm_matrix = create_cost_matrix(seq1_rhythm, seq2_rhythm)
+        # Create cost matrices and calculate scores with n-gram lengths
+        pitch_matrix, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
+        rhythm_matrix, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
         
-        # Calculate scores with consistent decimal places
-        pitch_similarity = round(calculate_similarity_score(log_transform_distances(pitch_matrix)), 4)
-        rhythm_similarity = round(calculate_similarity_score(log_transform_distances(rhythm_matrix)), 4)
+        # Calculate scores with n-gram lengths
+        pitch_similarity = round(calculate_similarity_score(
+            log_transform_distances(pitch_matrix, pitch_ngram_len)), 4)
+        rhythm_similarity = round(calculate_similarity_score(
+            log_transform_distances(rhythm_matrix, rhythm_ngram_len)), 4)
         
         # Store results with ruling
         results.append({

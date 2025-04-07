@@ -1,0 +1,3 @@
+Case,Ruling,Binary Ruling,Song 1,Song 2,Pitch Similarity,Rhythm Similarity
+Case_107,Plagiarism,1,107_a_Hachigatsu_no_Rainy_August_Rainy,107_b_M.A.K.E.,1.0,1.0
+Case_116,No_Plagiarism,0,116_a_Lets_Get_It_On,116_b_Thinking_Out_Loud,0.152,0.0889

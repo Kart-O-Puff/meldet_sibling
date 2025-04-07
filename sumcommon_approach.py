@@ -39,17 +39,18 @@ def calculate_common_elements(seq1, seq2):
         seq1_units = set()
         seq2_units = set()
         
+        # Convert sequence 1 to set
         for unit in seq1:
             if unit is not None:
                 try:
-                    # Try to convert to tuple, handle both lists and single values
                     if isinstance(unit, (list, np.ndarray)):
                         seq1_units.add(tuple(unit))
                     else:
                         seq1_units.add((unit,))
                 except TypeError:
-                    continue  # Skip invalid units
-                    
+                    continue
+        
+        # Convert sequence 2 to set
         for unit in seq2:
             if unit is not None:
                 try:
@@ -58,20 +59,30 @@ def calculate_common_elements(seq1, seq2):
                     else:
                         seq2_units.add((unit,))
                 except TypeError:
-                    continue  # Skip invalid units
+                    continue
         
-        # Check if we have valid units after conversion
         if not seq1_units or not seq2_units:
             return 0.0
             
-        # Calculate Jaccard similarity
-        common_ngrams = seq1_units.intersection(seq2_units)
-        all_unique_ngrams = seq1_units.union(seq2_units)
+        # Jaccard Similarity Formula: J(A,B) = |A ∩ B| / |A ∪ B|
+        # Where:
+        # |A ∩ B| = Size of intersection (number of common elements)
+        # |A ∪ B| = Size of union (total number of unique elements)
+        
+        # Get number of common elements between both sequences
+        common_ngrams = seq1_units.intersection(seq2_units)  # A ∩ B
+        
+        # Get total number of unique elements across both sequences
+        all_unique_ngrams = seq1_units.union(seq2_units)     # A ∪ B
         
         if not all_unique_ngrams:
             return 0.0
             
-        return len(common_ngrams) / len(all_unique_ngrams)
+        # Calculate Jaccard similarity score:
+        # Score ranges from 0 (no similarity) to 1 (identical sequences)
+        # Example: If |A ∩ B| = 3 and |A ∪ B| = 6, then J(A,B) = 3/6 = 0.5
+        jaccard_similarity = round(len(common_ngrams) / len(all_unique_ngrams), 4)
+        return jaccard_similarity
         
     except Exception as e:
         return 0.0
