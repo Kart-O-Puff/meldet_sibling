@@ -100,7 +100,7 @@ def log_transform_distances(distance_matrix, ngram_length):
     
     return similarity_matrix
 
-def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None):
+def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2=""):
     """Plot matrix values as a visual table using matplotlib."""
     fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(14, 8))
     ax_table.axis('tight')
@@ -149,14 +149,18 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     table.set_fontsize(9)
     table.scale(1.2, 1.5)
     
+    # Enhanced title with song information and percentage score
+    full_title = f"{title}\n"
+    if song1 and song2:
+        full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        title = f"{title}\nSimilarity Score: {similarity_score:.4f}"
-    ax_table.set_title(title)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
+    ax_table.set_title(full_title)
     
     plt.tight_layout()
     plt.show()
 
-def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None):
+def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2=""):
     """Plot similarity/distance matrix as a heatmap without detailed values."""
     plt.figure(figsize=(10, 8))
     
@@ -184,9 +188,13 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     for i in range(min(len(seq1), len(seq2))):
         plt.plot(i, i, 'rx', markersize=8)
     
+    # Enhanced title with song information and percentage score
+    full_title = f"{title}\n"
+    if song1 and song2:
+        full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        title = f"{title}\nSimilarity Score: {similarity_score:.4f}"
-    plt.title(title)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
+    plt.title(full_title)
     
     plt.tight_layout()
     plt.show()
@@ -243,6 +251,10 @@ def analyze_case(df, case_number, show_visualizations=False):
     seq1_rhythm = case_data.loc[0, 'Relative Rhythm']
     seq2_rhythm = case_data.loc[1, 'Relative Rhythm']
     
+    # Get song titles
+    song1_title = case_data.loc[0, 'File Name']
+    song2_title = case_data.loc[1, 'File Name']
+    
     # Create cost matrices with n-gram lengths
     pitch_distances, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
     rhythm_distances, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
@@ -256,8 +268,8 @@ def analyze_case(df, case_number, show_visualizations=False):
     rhythm_similarity = round(np.mean(np.diagonal(rhythm_similarities)), 4)
     
     print(f"\nFinal Similarity Scores for {case_number}:")
-    print(f"Pitch Similarity: {pitch_similarity}")
-    print(f"Rhythm Similarity: {rhythm_similarity}")
+    print(f"Pitch Similarity: {pitch_similarity * 100:.2f}%")
+    print(f"Rhythm Similarity: {rhythm_similarity * 100:.2f}%")
     
     if show_visualizations:
         print("\nVisualization Options:")
@@ -274,19 +286,23 @@ def analyze_case(df, case_number, show_visualizations=False):
             
             if viz_type in ['1', '3']:
                 plot_matrix_as_table(distances, seq1, seq2, 
-                                   f"Edit Distance Matrix Values ({feature})")
+                                   f"Edit Distance Matrix Values ({feature})",
+                                   song1=song1_title, song2=song2_title)
                 plot_matrix_as_table(similarities, seq1, seq2, 
                                    f"Similarity Matrix Values ({feature})", 
                                    is_similarity=True,
-                                   similarity_score=score)
+                                   similarity_score=score,
+                                   song1=song1_title, song2=song2_title)
             
             if viz_type in ['2', '3']:
                 plot_heatmap(distances, seq1, seq2,
-                           f"Edit Distance Heatmap ({feature})")
+                           f"Edit Distance Heatmap ({feature})",
+                           song1=song1_title, song2=song2_title)
                 plot_heatmap(similarities, seq1, seq2,
                            f"Similarity Heatmap ({feature})",
                            is_similarity=True,
-                           similarity_score=score)
+                           similarity_score=score,
+                           song1=song1_title, song2=song2_title)
 
 def analyze_all_cases(df, show_plots=False):
     """Analyze all cases and return their similarity scores."""
@@ -333,10 +349,12 @@ def analyze_all_cases(df, show_plots=False):
         if show_plots:
             plot_matrix_as_table(pitch_matrix, seq1_pitch, seq2_pitch, 
                            f"Pitch Cost Matrix - {case} ({ruling})\nSimilarity Score: {pitch_similarity}",
-                           is_similarity=True)
+                           is_similarity=True,
+                           song1=song1_title, song2=song2_title)
             plot_matrix_as_table(rhythm_matrix, seq1_rhythm, seq2_rhythm, 
                            f"Rhythm Cost Matrix - {case} ({ruling})\nSimilarity Score: {rhythm_similarity}",
-                           is_similarity=True)
+                           is_similarity=True,
+                           song1=song1_title, song2=song2_title)
     
     return results
 
@@ -374,8 +392,13 @@ def interactive_menu(df):
             print("Invalid choice!")
 
 def save_similarity_report(results, output_path):
-    """Save similarity analysis results to CSV file."""
+    """Save similarity analysis results to CSV file with percentage values."""
     df = pd.DataFrame(results)
+    
+    # Convert similarity scores to percentages
+    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
+    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
     # Extract case numbers and sort using raw string for regex

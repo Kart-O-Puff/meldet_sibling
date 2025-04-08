@@ -1,7 +1,7 @@
 Approach,Feature,AUC,Accuracy,Precision,Recall,F1
-MelDet,Pitch,1.0,1.0,1.0,1.0,1.0
-MelDet,Rhythm,1.0,1.0,1.0,1.0,1.0
-ModTverskyEqual,Pitch,1.0,0.5,0.0,0.0,0.0
-ModTverskyEqual,Rhythm,1.0,0.5,0.0,0.0,0.0
-SumCommon,Pitch,1.0,1.0,1.0,1.0,1.0
-SumCommon,Rhythm,1.0,1.0,1.0,1.0,1.0
+MelDet,Pitch,inf,0.5,0.5,1.0,0.6666666666666666
+MelDet,Rhythm,inf,0.5,0.5,1.0,0.6666666666666666
+ModTverskyEqual,Pitch,inf,0.5,0.0,0.0,0.0
+ModTverskyEqual,Rhythm,inf,0.5,0.0,0.0,0.0
+SumCommon,Pitch,inf,1.0,1.0,1.0,1.0
+SumCommon,Rhythm,inf,1.0,1.0,1.0,1.0

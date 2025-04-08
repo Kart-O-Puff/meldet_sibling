@@ -169,7 +169,7 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
                 ha='center', va='bottom')
     
     # Customize plot
-    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nSimilarity Score: {similarity_score}")
+    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nSimilarity Score: {similarity_score * 100:.2f}%")
     plt.ylabel('Number of N-grams')
     plt.legend(loc='upper right')
     plt.grid(True, alpha=0.3)
@@ -238,8 +238,8 @@ def analyze_case_with_visualization(df, case_number):
     rhythm_score = calculate_modified_tversky(seq1_rhythm, seq2_rhythm)
     
     print(f"\nFinal Similarity Scores for {case_number}:")
-    print(f"Pitch Similarity: {pitch_score}")
-    print(f"Rhythm Similarity: {rhythm_score}")
+    print(f"Pitch Similarity: {pitch_score * 100:.2f}%")
+    print(f"Rhythm Similarity: {rhythm_score * 100:.2f}%")
     
     print("\nVisualization Options:")
     print("1. Show Pitch Analysis")
@@ -287,8 +287,13 @@ def analyze_all_cases(df):
     return results
 
 def save_similarity_report(results, output_path):
-    """Save similarity analysis results to CSV file."""
+    """Save similarity analysis results to CSV file with percentage values."""
     df = pd.DataFrame(results)
+    
+    # Convert similarity scores to percentages
+    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
+    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
     # Extract case numbers and sort using raw string

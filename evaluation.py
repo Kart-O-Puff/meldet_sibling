@@ -18,61 +18,23 @@ def load_similarity_reports():
 
 def calculate_metrics(predictions, ground_truth, threshold=0.5):
     """
-    Calculate evaluation metrics for binary classification.
-    
-    Parameters Example:
-        predictions = [0.8, 0.2, 0.6, 0.3]  # Similarity scores from approaches
-        ground_truth = [1, 0, 1, 0]         # Binary rulings from reports
-        threshold = 0.5                      # Decision boundary
-    
-    Binary Conversion Logic:
-        Similarity Score -> Binary Prediction
-        0.8 >= 0.5 -> 1    (Correctly predicts Plagiarism)
-        0.2 < 0.5  -> 0    (Correctly predicts Non-Plagiarism)
-        0.6 >= 0.5 -> 1    (Correctly predicts Plagiarism)
-        0.3 < 0.5  -> 0    (Correctly predicts Non-Plagiarism)
-    
-    Metric Calculations:
-    1. Accuracy: (TP + TN) / Total
-       Example: (2 + 2) / 4 = 1.0 (100% accurate)
-       - TP (True Positive): Predicted 1 when actually 1
-       - TN (True Negative): Predicted 0 when actually 0
-    
-    2. Precision: TP / (TP + FP)
-       Example: 2 / 2 = 1.0 (No false plagiarism claims)
-       - High precision means reliable plagiarism detection
-    
-    3. Recall: TP / (TP + FN)
-       Example: 2 / 2 = 1.0 (Caught all plagiarism cases)
-       - High recall means catching most/all plagiarism
-    
-    4. F1: 2 * (Precision * Recall) / (Precision + Recall)
-       Example: 2 * (1.0 * 1.0) / (1.0 + 1.0) = 1.0
-       - Balances precision and recall
-    
-    Real-world Example:
-    Similarity Scores: [0.95, 0.15, 0.85, 0.25, 0.55]
-    Ground Truth:      [1,    0,    1,    0,    1   ]
-    Binary Pred:       [1,    0,    1,    0,    1   ]
-    
-    - Perfect prediction: All similarity scores align with ground truth
-    - High scores (>0.5) correctly predict plagiarism cases
-    - Low scores (<0.5) correctly predict non-plagiarism cases
+    Calculate evaluation metrics between similarity scores and binary ruling.
+    Handles zero division cases for precision, recall, and F1 score.
     """
     # Convert predictions to binary based on threshold
     binary_predictions = (predictions >= threshold).astype(int)
     
-    # Calculate metrics for both classes
+    # Calculate metrics with zero_division parameter
     metrics = {
         'Accuracy': accuracy_score(ground_truth, binary_predictions),
-        'Precision': precision_score(ground_truth, binary_predictions, average='binary'),
-        'Recall': recall_score(ground_truth, binary_predictions, average='binary'),
-        'F1': f1_score(ground_truth, binary_predictions, average='binary')
+        'Precision': precision_score(ground_truth, binary_predictions, average='binary', zero_division=0),
+        'Recall': recall_score(ground_truth, binary_predictions, average='binary', zero_division=0),
+        'F1': f1_score(ground_truth, binary_predictions, average='binary', zero_division=0)
     }
     
     return metrics
 
-def plot_roc_curve(similarity_scores, binary_ruling, title):
+def plot_roc_curve(similarity_scores, binary_ruling, title, song1="", song2="", score=None):
     """Plot ROC curve and calculate AUC."""
     fpr, tpr, _ = roc_curve(binary_ruling, similarity_scores)
     roc_auc = auc(fpr, tpr)
@@ -85,32 +47,72 @@ def plot_roc_curve(similarity_scores, binary_ruling, title):
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title(f'ROC Curve - {title}')
+    
+    # Enhanced title with song information and percentage score
+    full_title = f'ROC Curve - {title}\n'
+    if song1 and song2:
+        full_title += f'{song1} vs {song2}\n'
+    if score is not None:
+        full_title += f'Similarity Score: {score:.2f}%'
+    plt.title(full_title)
+    
     plt.legend(loc="lower right")
     plt.grid(True, alpha=0.3)
     plt.show()
     
     return roc_auc
 
-def evaluate_approach(similarity_df, approach_name):
+def evaluation_visualization_menu():
+    """Display menu for ROC curve visualization options."""
+    print("\nROC Curve Visualization Options:")
+    print("1. Show Pitch Analysis")
+    print("2. Show Rhythm Analysis")
+    print("3. Show Both Analyses")
+    
+    while True:
+        choice = input("\nEnter your choice (1-3): ")
+        if choice in ['1', '2', '3']:
+            return choice
+        print("Invalid choice! Please try again.")
+
+def evaluate_approach(similarity_df, approach_name, show_plots=False):
     """Evaluate pitch and rhythm similarity scores against binary rulings from report."""
-    # Get binary rulings from similarity report
+    # Get binary rulings and song titles from similarity report
     binary_ruling = similarity_df['Binary Ruling'].values
+    song1_titles = similarity_df['Song 1'].values
+    song2_titles = similarity_df['Song 2'].values
     
-    # Calculate and plot ROC curves
-    print(f"\nGenerating ROC curves for {approach_name}...")
-    pitch_auc = plot_roc_curve(
-        similarity_df['Pitch Similarity'],
-        binary_ruling,
-        f'{approach_name} - Pitch Feature'
-    )
-    rhythm_auc = plot_roc_curve(
-        similarity_df['Rhythm Similarity'],
-        binary_ruling,
-        f'{approach_name} - Rhythm Feature'
-    )
+    if show_plots:
+        print(f"\nGenerating ROC curves for {approach_name}...")
+        viz_choice = evaluation_visualization_menu()
+        
+        for idx, (song1, song2) in enumerate(zip(song1_titles, song2_titles)):
+            # Plot Pitch ROC curve if selected
+            if viz_choice in ['1', '3']:
+                pitch_auc = plot_roc_curve(
+                    similarity_df['Pitch Similarity'],
+                    binary_ruling,
+                    f'{approach_name} - Pitch Feature',
+                    song1, song2,
+                    similarity_df['Pitch Similarity'].iloc[idx] * 100
+                )
+            
+            # Plot Rhythm ROC curve if selected
+            if viz_choice in ['2', '3']:
+                rhythm_auc = plot_roc_curve(
+                    similarity_df['Rhythm Similarity'],
+                    binary_ruling,
+                    f'{approach_name} - Rhythm Feature',
+                    song1, song2,
+                    similarity_df['Rhythm Similarity'].iloc[idx] * 100
+                )
+    else:
+        # Calculate AUC without plotting
+        _, tpr_pitch, _ = roc_curve(binary_ruling, similarity_df['Pitch Similarity'])
+        pitch_auc = auc(_, tpr_pitch)
+        _, tpr_rhythm, _ = roc_curve(binary_ruling, similarity_df['Rhythm Similarity'])
+        rhythm_auc = auc(_, tpr_rhythm)
     
-    # Evaluate metrics
     pitch_results = {
         'Approach': approach_name,
         'Feature': 'Pitch',
@@ -156,23 +158,49 @@ def print_separate_evaluation_results(results):
     rhythm_df = pd.DataFrame([r[1] for r in results])
     print(rhythm_df.to_string(index=False))
 
+def evaluation_menu():
+    """Display menu for evaluation options."""
+    print("\nEvaluation Options:")
+    print("1. Show evaluation with ROC curve visualizations")
+    print("2. Show evaluation metrics only")
+    print("3. Exit")
+    
+    while True:
+        choice = input("\nEnter your choice (1-3): ")
+        if choice in ['1', '2', '3']:
+            return choice
+        print("Invalid choice! Please try again.")
+
 def main():
     """Main execution comparing similarity scores against binary rulings from reports."""
     # Load similarity reports
     similarity_reports = load_similarity_reports()
     
-    # Evaluate each approach
-    results = []
-    for approach_name, report_df in similarity_reports.items():
-        pitch_result, rhythm_result = evaluate_approach(report_df, approach_name)
-        results.append((pitch_result, rhythm_result))
-    
-    # Print separated results
-    print_separate_evaluation_results(results)
-    
-    # Save combined report
-    report_path = Path(__file__).parent / "evaluation_report.csv"
-    save_evaluation_report(results, report_path)
+    while True:
+        choice = evaluation_menu()
+        
+        if choice == '3':
+            print("Exiting...")
+            break
+        
+        show_plots = (choice == '1')
+        
+        # Evaluate each approach
+        results = []
+        for approach_name, report_df in similarity_reports.items():
+            pitch_result, rhythm_result = evaluate_approach(
+                report_df, approach_name, show_plots)
+            results.append((pitch_result, rhythm_result))
+        
+        # Print separated results
+        print_separate_evaluation_results(results)
+        
+        # Save combined report
+        report_path = Path(__file__).parent / "evaluation_report.csv"
+        save_evaluation_report(results, report_path)
+        
+        if choice == '2':
+            break  # Exit after showing metrics only
 
 if __name__ == "__main__":
     main()
