@@ -6,7 +6,7 @@ import ast
 
 def load_sequences_from_library():
     """Load and parse the melody library CSV file."""
-    csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library.csv"
+    csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library_symbolic.csv"
     df = pd.read_csv(csv_path)
     
     # Convert string representations back to actual lists
@@ -24,103 +24,62 @@ def calculate_common_elements(seq1, seq2):
     """
     Calculate Jaccard similarity between two songs based on their n-gram sequences.
     
-    Error Handling:
-    - Checks if input sequences are valid lists/arrays
-    - Ensures input sequences are not empty
-    - Converts non-list tokens to lists if possible
-    - Returns 0.0 for any error cases
+    Similarity = |A ∩ B| / (|A| + |B| - |A ∩ B|)
+    where:
+    - A = set of n-grams in song1
+    - B = set of n-grams in song2
+    - |A ∩ B| = number of common n-grams (exact matches)
+    - |A| = total n-grams in song1
+    - |B| = total n-grams in song2
     """
     try:
         # Input validation
         if not isinstance(seq1, (list, np.ndarray)) or not isinstance(seq2, (list, np.ndarray)):
             return 0.0
             
-        # Convert sequences to sets of tuples, handling potential non-iterable elements
-        seq1_units = set()
-        seq2_units = set()
-        
-        # Convert sequence 1 to set
-        for unit in seq1:
-            if unit is not None:
-                try:
-                    if isinstance(unit, (list, np.ndarray)):
-                        seq1_units.add(tuple(unit))
-                    else:
-                        seq1_units.add((unit,))
-                except TypeError:
-                    continue
-        
-        # Convert sequence 2 to set
-        for unit in seq2:
-            if unit is not None:
-                try:
-                    if isinstance(unit, (list, np.ndarray)):
-                        seq2_units.add(tuple(unit))
-                    else:
-                        seq2_units.add((unit,))
-                except TypeError:
-                    continue
+        # Convert n-gram sequences to tuples for set operations
+        seq1_units = set(tuple(gram) for gram in seq1 if gram is not None)
+        seq2_units = set(tuple(gram) for gram in seq2 if gram is not None)
         
         if not seq1_units or not seq2_units:
             return 0.0
             
-        # Jaccard Similarity Formula: J(A,B) = |A ∩ B| / |A ∪ B|
-        # Where:
-        # |A ∩ B| = Size of intersection (number of common elements)
-        # |A ∪ B| = Size of union (total number of unique elements)
+        # Calculate intersection (common n-grams)
+        common_ngrams = seq1_units.intersection(seq2_units)
         
-        # Get number of common elements between both sequences
-        common_ngrams = seq1_units.intersection(seq2_units)  # A ∩ B
+        # Calculate similarity using the formula
+        # similarity = |A ∩ B| / (|A| + |B| - |A ∩ B|)
+        intersection_size = len(common_ngrams)
+        similarity = intersection_size / (len(seq1_units) + len(seq2_units) - intersection_size)
         
-        # Get total number of unique elements across both sequences
-        all_unique_ngrams = seq1_units.union(seq2_units)     # A ∪ B
-        
-        if not all_unique_ngrams:
-            return 0.0
-            
-        # Calculate Jaccard similarity score:
-        # Score ranges from 0 (no similarity) to 1 (identical sequences)
-        # Example: If |A ∩ B| = 3 and |A ∪ B| = 6, then J(A,B) = 3/6 = 0.5
-        jaccard_similarity = round(len(common_ngrams) / len(all_unique_ngrams), 4)
-        return jaccard_similarity
+        return round(similarity, 4)
         
     except Exception as e:
         return 0.0
 
 def plot_similarity_comparison(similarities, title, song1, song2):
     """
-    Plot similarity scores for corresponding n-gram pairs and their average.
-    Each bar represents a single n-gram pair comparison.
+    Plot similarity scores for complete n-gram sequence comparison.
+    Shows the Jaccard similarity based on exact n-gram sequence matches.
     """
     plt.figure(figsize=(12, 6))
     
-    # Create bar plot for n-gram similarities
-    x = range(len(similarities))
-    plt.bar(x, similarities, color='skyblue', alpha=0.6, label='N-gram Pair Similarity')
+    # Single bar showing Jaccard similarity
+    plt.bar(['Jaccard Similarity'], [similarities], color='skyblue', alpha=0.6)
     
-    # Add average line
-    avg_similarity = np.mean(similarities)
-    plt.axhline(y=avg_similarity, color='red', linestyle='--', 
-                label=f'Average Similarity: {avg_similarity:.4f}')
-    
-    # Add individual score labels on bars
-    for i, score in enumerate(similarities):
-        plt.text(i, score + 0.02, f'{score:.3f}', ha='center')
+    # Add score label
+    plt.text(0, similarities + 0.02, f'{similarities:.4f}', ha='center')
     
     plt.title(f"{title}\n{song1} vs {song2}")
-    plt.xlabel("N-gram Pair Position")
     plt.ylabel("Similarity Score")
-    plt.ylim(0, 1.15)  # Make room for score labels
+    plt.ylim(0, 1.15)
     plt.grid(True, alpha=0.3)
-    plt.legend()
     
-    # Add info box with consistent format
+    # Add info box
     info_text = (
-        f'Total n-gram pairs: {len(similarities)}\n'
-        f'Length of n-gram sequence: 7 (relative intervals)\n'
-        f'Step Size: 4\n'
-        f'Final Similarity Score: {avg_similarity:.4f}\n'
-        f'Method: Sum Common'
+        f'Jaccard Similarity Score: {similarities:.4f}\n'
+        f'Method: Complete N-gram Sequence Comparison\n'
+        f'(Exact matches of entire n-gram sequences)'
     )
     plt.text(0.02, 0.98, info_text,
              transform=plt.gca().transAxes,
@@ -132,38 +91,34 @@ def plot_similarity_comparison(similarities, title, song1, song2):
     plt.show()
 
 def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
-    """Plot detailed n-gram analysis as a stacked bar chart with statistics."""
-    # Convert sequences to sets of tuples for comparison
-    tokens1 = {tuple(token) if isinstance(token, (list, np.ndarray)) else (token,) 
-               for token in seq1 if token is not None}
-    tokens2 = {tuple(token) if isinstance(token, (list, np.ndarray)) else (token,) 
-               for token in seq2 if token is not None}
+    """Plot n-gram sequence analysis showing exact sequence matches."""
+    # Convert complete n-gram sequences to tuples for comparison
+    seq1_units = set(tuple(gram) for gram in seq1 if gram is not None)
+    seq2_units = set(tuple(gram) for gram in seq2 if gram is not None)
     
-    # Calculate set operations
-    common = len(tokens1.intersection(tokens2))
-    unique_to_s1 = len(tokens1.difference(tokens2))
-    unique_to_s2 = len(tokens2.difference(tokens1))
+    # Calculate set operations on complete sequences
+    common = len(seq1_units.intersection(seq2_units))
+    unique_to_s1 = len(seq1_units.difference(seq2_units))
+    unique_to_s2 = len(seq2_units.difference(seq1_units))  # Fixed: now comparing with seq1_units
     
     # Create stacked bar chart
     plt.figure(figsize=(12, 6))
     
-    # Create bars for both songs
     songs = ['Song 1', 'Song 2']
-    common_values = [common, common]  # Common n-grams for both songs
-    unique_values = [unique_to_s1, unique_to_s2]  # Unique n-grams for each song
+    common_values = [common, common]
+    unique_values = [unique_to_s1, unique_to_s2]
     
-    # Plot stacked bars
     bar_width = 0.35
     plt.bar(songs, common_values, bar_width, 
-            label='Common N-grams', color='green', alpha=0.6)
+            label='Matching N-gram Sequences', color='green', alpha=0.6)
     plt.bar(songs, unique_values, bar_width, 
-            bottom=common_values, label='Unique N-grams', 
+            bottom=common_values, label='Unique N-gram Sequences', 
             color=['blue', 'red'], alpha=0.6)
     
-    # Add value labels on bars
+    # Add value labels
     for i in range(len(songs)):
         plt.text(i, common_values[i]/2, 
-                f'Common: {common_values[i]}', 
+                f'Matching: {common_values[i]}', 
                 ha='center', va='center')
         plt.text(i, common_values[i] + unique_values[i]/2,
                 f'Unique: {unique_values[i]}',
@@ -172,20 +127,20 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
                 f'Total: {common_values[i] + unique_values[i]}',
                 ha='center', va='bottom')
     
-    # Customize plot
-    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nSimilarity Score: {similarity_score * 100:.2f}%")
-    plt.ylabel('Number of N-grams')
+    plt.title(f"{title} N-gram Sequence Analysis\n{song1} vs {song2}\nJaccard Similarity: {similarity_score * 100:.2f}%")
+    plt.ylabel('Number of N-gram Sequences')
     plt.legend(loc='upper right')
     plt.grid(True, alpha=0.3)
     
-    # Add info box
+    # Add info box with Jaccard calculation
     info_text = (
-        f'Common N-grams: {common}\n'
+        f'Matching N-gram Sequences: {common}\n'
         f'Unique to Song 1: {unique_to_s1}\n'
         f'Unique to Song 2: {unique_to_s2}\n'
-        f'Total in Song 1: {common + unique_to_s1}\n'
-        f'Total in Song 2: {common + unique_to_s2}\n'
-        f'Similarity Score: {similarity_score}'
+        f'Total Sequences in Song 1: {len(seq1_units)}\n'
+        f'Total Sequences in Song 2: {len(seq2_units)}\n'
+        f'Jaccard Similarity = {common}/({len(seq1_units)} + {len(seq2_units)} - {common})'
+        f' = {similarity_score:.4f}'
     )
     plt.text(0.02, 0.98, info_text,
              transform=plt.gca().transAxes,
@@ -197,7 +152,23 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     plt.show()
 
 def analyze_case(df, case_number):
-    """Analyze a single case using Sum Common approach."""
+    """
+    Analyze a single case using Sum Common approach (Jaccard Similarity).
+    
+    Important Note on Similarity Calculation:
+    1. The calculate_common_elements() function implements true Jaccard similarity:
+       - Treats all n-grams as a single set per sequence
+       - Calculates |intersection| / |union| once per feature
+       - Returns a single similarity score [0,1]
+    
+    2. This is different from the visualization function which:
+       - Shows individual n-gram pair comparisons
+       - Displays an average line (not used for actual similarity)
+       - Is only for visualization purposes
+    
+    The similarity score used in the final report is the true Jaccard similarity
+    from calculate_common_elements(), not the average from visualizations.
+    """
     case_data = df[df['Case'] == case_number].reset_index(drop=True)
     
     if len(case_data) != 2:
@@ -349,10 +320,11 @@ def interactive_menu(df):
 
 def main():
     """
-    Key Differences from MelDet Approach:
-    1. No cost matrix or edit distance calculation
-    2. Calculates similarity per n-gram pair by counting common elements
-    3. Calculates final similarity score as average of all n-gram pair scores
+    Key Points of Sum Common (Jaccard) Approach:
+    1. Treats each n-gram sequence as a complete unit
+    2. Uses set operations to find common sequences
+    3. Calculates similarity using Jaccard formula:
+       |A ∩ B| / (|A| + |B| - |A ∩ B|)
     """
     # Load sequences from library
     df = load_sequences_from_library()

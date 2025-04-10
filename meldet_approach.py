@@ -5,10 +5,10 @@ import ast  # for safely evaluating string representations of lists
 from pathlib import Path
 
 def load_sequences_from_library():
-    """Load and parse the melody library CSV file."""
+    """Load and parse the symbolic melody library CSV file."""
     try:
         # Get absolute path and verify file exists
-        csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library.csv"
+        csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library_symbolic.csv"
         if not csv_path.exists():
             raise FileNotFoundError(f"Cannot find file: {csv_path}")
         
@@ -23,16 +23,14 @@ def load_sequences_from_library():
         df['Relative Pitch'] = df['Relative Pitch'].apply(ast.literal_eval)
         df['Relative Rhythm'] = df['Relative Rhythm'].apply(ast.literal_eval)
         
-        # Ensure 'Ruling' column exists
-        if 'Category' in df.columns and 'Ruling' not in df.columns:
-            df['Ruling'] = df['Category']
-            df = df.drop('Category', axis=1)
+        # Note: Additional columns (sequence counts) are available but not needed
+        # for similarity calculation
         
         return df
         
     except FileNotFoundError as e:
         print(f"Error: {e}")
-        print("Please ensure melody_library.csv exists in MCIC_Dataset/MCIC_Preprocessed/")
+        print("Please ensure melody_library_symbolic.csv exists in MCIC_Dataset/MCIC_Preprocessed/")
         raise
     except pd.errors.EmptyDataError:
         print("Error: The CSV file is empty")
