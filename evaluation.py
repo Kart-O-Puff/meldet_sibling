@@ -3,7 +3,6 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve, f1_score, average_precision_score, precision_recall_curve
-import time
 
 """
 Example of similarity report format for each approach:
@@ -150,49 +149,6 @@ def evaluate_approach(similarity_df):
         'Rhythm F1': rhythm_f1
     }
 
-def evaluate_runtime(similarity_reports):
-    """
-    This function measures how fast each approach runs by:
-    1. Taking similarity reports from each approach (MelDet, Sum Common, and Tversky)
-    2. Simulating their core operations to measure speed
-    3. Calculating both total time and average time per comparison
-    
-    Runtime Simulation Methodology:
-    We process existing similarity scores to simulate runtime because:
-    - It mimics the actual computational overhead of accessing and processing
-      similarity values, which is the core operation in all three approaches
-    - Memory access patterns and data processing remain consistent with real usage
-    - It eliminates external factors (like I/O operations) that could skew results
-    - Provides a fair comparison focusing on the algorithmic efficiency
-    
-    The simulation maintains relative performance characteristics while being
-    reproducible and stable across different runs.
-    """
-    runtime_results = {}
-    
-    for approach, df in similarity_reports.items():
-        # Start measuring time for this approach
-        start_time = time.time()
-        
-        # Simulate core processing operations
-        n_comparisons = len(df)
-        _ = df['Pitch Similarity'].values  # Core operation in all approaches
-        _ = df['Rhythm Similarity'].values # Core operation in all approaches
-        
-        # Stop the timer and calculate results
-        end_time = time.time()
-        total_time = end_time - start_time
-        avg_time = total_time / n_comparisons
-        
-        # Store the results for this approach
-        runtime_results[approach] = {
-            'total_time': total_time,
-            'avg_time': avg_time,
-            'n_comparisons': n_comparisons
-        }
-    
-    return runtime_results
-
 def plot_mse_comparison(results):
     """Plot MSE comparison across approaches."""
     approaches = list(results.keys())
@@ -227,28 +183,6 @@ def plot_mse_comparison(results):
     autolabel(pitch_bars)
     autolabel(rhythm_bars)
     autolabel(avg_bars)
-    
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-
-def plot_runtime_comparison(runtime_results):
-    """Plot runtime comparison across approaches."""
-    approaches = list(runtime_results.keys())
-    avg_times = [results['avg_time'] * 1000 for results in runtime_results.values()]  # Convert to milliseconds
-    
-    plt.figure(figsize=(10, 6))
-    bars = plt.bar(approaches, avg_times)
-    
-    plt.ylabel('Average Time per Comparison (ms)')
-    plt.title('Runtime Comparison Across Approaches')
-    
-    # Add value labels
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.3f}ms',
-                ha='center', va='bottom')
     
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -443,17 +377,6 @@ def print_evaluation_results(results):
         print(f"{approach:<15} " + " ".join(values))
     print("-" * 140)
 
-def print_runtime_results(runtime_results):
-    """Print runtime results in a formatted table."""
-    print("\nRuntime Results:")
-    print("-" * 80)
-    print(f"{'Approach':<15} {'Total Time (s)':>15} {'Avg Time (ms)':>15} {'# Comparisons':>15}")
-    print("-" * 80)
-    
-    for approach, results in runtime_results.items():
-        print(f"{approach:<15} {results['total_time']:>15.3f} {results['avg_time']*1000:>15.3f} {results['n_comparisons']:>15}")
-    print("-" * 80)
-
 def save_evaluation_report(results, output_path):
     """Save evaluation results to CSV."""
     data = []
@@ -488,10 +411,9 @@ def show_menu():
     print("3. Show AUC-ROC Comparison")
     print("4. Show AUC-PR Comparison")
     print("5. Show F1 Threshold Analysis")
-    print("6. Show Runtime Comparison")
-    print("7. Generate Full Report (All Metrics)")
-    print("8. Exit")
-    return input("\nSelect an option (1-8): ")
+    print("6. Generate Full Report (All Metrics)")
+    print("7. Exit")
+    return input("\nSelect an option (1-7): ")
 
 def interactive_evaluation():
     """Run evaluation with interactive menu."""
@@ -502,9 +424,6 @@ def interactive_evaluation():
     results = {}
     for approach_name, report_df in similarity_reports.items():
         results[approach_name] = evaluate_approach(report_df)
-    
-    # Compute runtime results
-    runtime_results = evaluate_runtime(similarity_reports)
     
     # Save all results
     report_path = Path(__file__).parent / "evaluation_report.csv"
@@ -526,24 +445,19 @@ def interactive_evaluation():
         elif choice == '5':
             plot_f1_threshold_curves(similarity_reports)
         elif choice == '6':
-            print_runtime_results(runtime_results)
-            plot_runtime_comparison(runtime_results)
-        elif choice == '7':
             print_evaluation_results(results)
-            print_runtime_results(runtime_results)
             plot_mse_comparison(results)
             plot_auc_comparison(results)
             plot_roc_curves(similarity_reports)
             plot_pr_curves(similarity_reports)
             plot_f1_threshold_curves(similarity_reports)
-            plot_runtime_comparison(runtime_results)
-        elif choice == '8':
+        elif choice == '7':
             print("\nExiting evaluation. Goodbye!")
             break
         else:
             print("\nInvalid choice. Please try again.")
         
-        if choice != '8':
+        if choice != '7':
             input("\nPress Enter to continue...")
 
 def main():

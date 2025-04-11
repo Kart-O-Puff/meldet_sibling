@@ -29,7 +29,7 @@ def load_sequences_from_library():
         if not csv_path.exists():
             raise FileNotFoundError(f"Cannot find file: {csv_path}")
         
-        df = pd.read_csv(csv_path, encoding='utf-8', on_bad_lines='skip')
+        df = pd.read_csv(csv_path, encoding='cp1252', on_bad_lines='skip')
         if df.empty:
             raise ValueError("CSV file is empty")
             

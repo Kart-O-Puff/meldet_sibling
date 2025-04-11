@@ -7,7 +7,7 @@ import ast
 def load_sequences_from_library():
     """Load and parse the melody library CSV file."""
     csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library_symbolic.csv"
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, encoding='cp1252')
     
     # Convert string representations back to actual lists
     df['Relative Pitch'] = df['Relative Pitch'].apply(ast.literal_eval)
