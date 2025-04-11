@@ -20,11 +20,12 @@ Where:
 """
 
 def load_similarity_reports():
-    """Load similarity reports from all three approaches."""
+    """Load similarity reports from all approaches."""
     base_path = Path(__file__).parent
     
     reports = {
         'MelDet': pd.read_csv(base_path / 'similarity_report_meldet.csv'),
+        'Hungarian': pd.read_csv(base_path / 'similarity_report_hungarian.csv'),
         'SumCommon': pd.read_csv(base_path / 'similarity_report_sumcommon.csv'),
         'Tversky': pd.read_csv(base_path / 'similarity_report_tversky.csv')
     }
