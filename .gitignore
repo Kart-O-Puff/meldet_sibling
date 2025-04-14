@@ -1,1 +1,11 @@
+# Similarity Reports
+similarity_report_hungarian.csv
+similarity_report_meldet.csv
+similarity_report_sumcommon.csv
+similarity_report_tversky.csv
+
+# Evaluation Report
+evaluation_report.csv
+
 # Preprocessed Files
+MCIC_Dataset/MCIC_Preprocessed/
