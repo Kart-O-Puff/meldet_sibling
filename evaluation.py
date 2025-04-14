@@ -8,15 +8,14 @@ from sklearn.metrics import roc_auc_score, roc_curve, f1_score, average_precisio
 Example of similarity report format for each approach:
 
 similarity_report_*.csv contains:
-Case,       Ruling,     Binary Ruling
-, Song1, Song2, Pitch Similarity, Rhythm Similarity
-Case_001,   Plagiarism, 1,            A.mp3, B.mp3, 85.5,            76.2
-Case_002,   Original,   0,            C.mp3, D.mp3, 45.2,            38.9
+Case,         Ruling,      Binary Ruling,    Song1,  Song2,   Pitch Similarity, Rhythm Similarity
+Case_001,     Plagiarism,        1,          A.mid,  B.mid,         85.5,              76.2
+Case_002,     No Plagiarism,     0,          C.mid,  D.mid,         45.2,              38.9
 ...
 
 Where:
 - Binary Ruling: 1 for plagiarism, 0 for no plagiarism
-- Pitch/Rhythm Similarity: score between 0-100
+- Pitch/Rhythm Similarity: score between 0-100 (%)
 """
 
 def load_similarity_reports():
@@ -72,16 +71,33 @@ def calculate_auc(predictions, labels):
 
 def calculate_auc_pr(predictions, labels):
     """
-    Calculate Area Under Precision-Recall Curve (AUC-PR).
+    Calculate Area Under Precision-Recall Curve (AUC-PR), also known as Average Precision (AP).
     
-    Example:
-    Scores (normalized): [0.855, 0.752, 0.452, 0.389]
-    Labels:             [1,     1,     0,     0    ]
+    The Average Precision (AP) is calculated by sklearn.metrics.average_precision_score as:
+    AP = Σ (R_n - R_n-1) * P_n
     
-    Higher scores for plagiarized cases (label=1) will give better AUC-PR.
-    Especially useful when classes are imbalanced (fewer plagiarism cases).
+    Where:
+    - P_n = precision at threshold n
+    - R_n = recall at threshold n
+    - The thresholds are automatically determined by unique prediction scores
+    
+    Input values:
+    - predictions: similarity scores (0-100) from either Pitch or Rhythm comparison
+                  these are normalized to 0-1 range by dividing by 100
+    - labels: Binary Ruling column from similarity report (1=plagiarism, 0=no plagiarism)
+    
+    Example calculation with similarity scores [85, 75, 45, 35] and labels [1, 1, 0, 0]:
+    1. Normalize scores: [0.85, 0.75, 0.45, 0.35]
+    2. Sort by decreasing score and track corresponding labels:
+       Score: 0.85  Label: 1  Precision: 1/1=1.00  Recall: 1/2=0.50  ΔRecall: 0.50
+       Score: 0.75  Label: 1  Precision: 2/2=1.00  Recall: 2/2=1.00  ΔRecall: 0.50
+       Score: 0.45  Label: 0  Precision: 2/3=0.67  Recall: 2/2=1.00  ΔRecall: 0.00
+       Score: 0.35  Label: 0  Precision: 2/4=0.50  Recall: 2/2=1.00  ΔRecall: 0.00
+    
+    3. AP = (1.00 * 0.50) + (1.00 * 0.50) = 1.00
+       Perfect AP because all plagiarized cases had higher scores than non-plagiarized
     """
-    predictions = np.array(predictions) / 100  # Convert to [0,1]
+    predictions = np.array(predictions) / 100  # Convert percentage to [0,1]
     return average_precision_score(labels, predictions)
 
 def find_best_threshold(y_true, scores):
@@ -231,27 +247,28 @@ def plot_pr_curves(similarity_reports):
         y_true = df['Binary Ruling'].values
         scores = df['Pitch Similarity'].values / 100
         precision, recall, _ = precision_recall_curve(y_true, scores)
-        auc_pr = calculate_auc_pr(df['Pitch Similarity'], y_true)
-        ax1.plot(recall, precision, label=f'{name} (AP = {auc_pr:.4f})')
+        ap = average_precision_score(y_true, scores)
+        ax1.plot(recall, precision, label=f'{name} (AP = {ap:.4f})')
     
     ax1.set_xlabel('Recall')
     ax1.set_ylabel('Precision')
     ax1.set_title('Precision-Recall Curves - Pitch Similarity')
-    ax1.legend()
+    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax1.grid(True, alpha=0.3)
+    
     
     # Plot for Rhythm similarity
     for name, df in similarity_reports.items():
         y_true = df['Binary Ruling'].values
         scores = df['Rhythm Similarity'].values / 100
         precision, recall, _ = precision_recall_curve(y_true, scores)
-        auc_pr = calculate_auc_pr(df['Rhythm Similarity'], y_true)
-        ax2.plot(recall, precision, label=f'{name} (AP = {auc_pr:.4f})')
+        ap = average_precision_score(y_true, scores)
+        ax2.plot(recall, precision, label=f'{name} (AP = {ap:.4f})')
     
     ax2.set_xlabel('Recall')
     ax2.set_ylabel('Precision')
     ax2.set_title('Precision-Recall Curves - Rhythm Similarity')
-    ax2.legend()
+    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -350,24 +367,19 @@ def plot_f1_threshold_curves(similarity_reports):
 
 def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
     """
-    Display a table showing threshold analysis with precision and recall values.
-    
-    Args:
-        similarity_df: DataFrame containing similarity scores and binary rulings
-        feature: String indicating which feature to analyze ('Pitch Similarity' or 'Rhythm Similarity')
+    Display how different similarity thresholds affect plagiarism detection decisions.
+    Shows what happens when we decide "similarity scores above X% mean plagiarism"
     """
-    scores = similarity_df[feature].values / 100  # Normalize scores to [0,1]
+    scores = similarity_df[feature].values / 100
     y_true = similarity_df['Binary Ruling'].values
-    
-    # Generate thresholds
     thresholds = np.arange(0.0, 1.1, 0.1)
     
     results = []
     for threshold in thresholds:
         y_pred = (scores >= threshold).astype(int)
-        tp = np.sum((y_pred == 1) & (y_true == 1))
-        fp = np.sum((y_pred == 1) & (y_true == 0))
-        fn = np.sum((y_pred == 0) & (y_true == 1))
+        tp = int(np.sum((y_pred == 1) & (y_true == 1)))  # Correctly identified plagiarism
+        fp = int(np.sum((y_pred == 1) & (y_true == 0)))  # False plagiarism alerts
+        fn = int(np.sum((y_pred == 0) & (y_true == 1)))  # Missed plagiarism cases
         
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
@@ -380,19 +392,23 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
             'Recall': recall
         })
     
-    # Create DataFrame and format it
-    df = pd.DataFrame(results)
-    df = df.round(3)
+    print(f"\nPlagiarism Detection Analysis for {feature}")
+    print("=" * 85)
+    print("If we consider scores above X as plagiarism:")
+    print("-" * 85)
+    print(f"{'X (threshold)':>15} {'Correct':>12} {'False':>12} {'Precision':>12} {'Recall':>12}")
+    print(f"{'(as %)':>15} {'Detections':>12} {'Alerts':>12} {'Rate':>12} {'Rate':>12}")
+    print("-" * 85)
     
-    print(f"\nPrecision-Recall Analysis for {feature}")
-    print("-" * 80)
-    print(df.to_string(index=False))
-    print("-" * 80)
-    return df
+    for row in results:
+        threshold_pct = row['Threshold'] * 100
+        print(f"{threshold_pct:>15.1f}% {row['True Positives']:>12d} {row['False Positives']:>12d} {row['Precision']:>12.4f} {row['Recall']:>12.4f}")
+    print("-" * 85)
+    print("Precision Rate = Correct detections / Total detections (accuracy of plagiarism alerts)")
+    print("Recall Rate = Correct detections / Total actual plagiarism cases (coverage of plagiarism cases)")
 
-def print_evaluation_results(results):
+def print_evaluation_results(results, show_pr_analysis=False):
     """Print detailed evaluation results in a formatted table."""
-    # First print the original table
     print("\nEvaluation Results:")
     print("-" * 140)
     headers = ['Approach', 'Pitch MSE', 'Rhythm MSE', 'Avg MSE', 
@@ -421,12 +437,17 @@ def print_evaluation_results(results):
         print(f"{approach:<15} " + " ".join(values))
     print("-" * 140)
     
-    # Add precision-recall analysis tables
-    similarity_reports = load_similarity_reports()
-    for approach, df in similarity_reports.items():
-        print(f"\n{approach} Analysis:")
-        display_pr_analysis_table(df, 'Pitch Similarity')
-        display_pr_analysis_table(df, 'Rhythm Similarity')
+    if show_pr_analysis:
+        # Add precision-recall analysis tables with consistent formatting
+        similarity_reports = load_similarity_reports()
+        pd.set_option('display.float_format', lambda x: '%.4f' % x)
+        
+        for approach, df in similarity_reports.items():
+            print(f"\n{approach} Analysis:")
+            display_pr_analysis_table(df, 'Pitch Similarity')
+            display_pr_analysis_table(df, 'Rhythm Similarity')
+        
+        pd.reset_option('display.float_format')
 
 def save_evaluation_report(results, output_path):
     """Save evaluation results to CSV."""
@@ -457,10 +478,10 @@ def show_menu():
     """Display interactive menu for evaluation options."""
     print("\nMelody Detection Evaluation Menu")
     print("=" * 40)
-    print("1. Show Summary Statistics")
+    print("1. Show Basic Statistics")
     print("2. Show MSE Comparison")
     print("3. Show AUC-ROC Comparison")
-    print("4. Show AUC-PR Comparison")
+    print("4. Show Precision-Recall Analysis")
     print("5. Show F1 Threshold Analysis")
     print("6. Generate Full Report (All Metrics)")
     print("7. Exit")
@@ -499,7 +520,26 @@ def interactive_evaluation():
         choice = show_menu()
         
         if choice == '1':
-            print_evaluation_results(results)
+            # Basic Statistics without PR Analysis
+            print("\nBasic Evaluation Results:")
+            print("-" * 110)
+            headers = ['Approach', 'Pitch MSE', 'Rhythm MSE', 'Avg MSE', 
+                      'Pitch AUC-ROC', 'Rhythm AUC-ROC', 'Avg AUC-ROC']
+            print(f"{headers[0]:<15} " + " ".join(f"{h:>12}" for h in headers[1:]))
+            print("-" * 110)
+            
+            for approach, scores in results.items():
+                values = [
+                    f"{scores['Pitch MSE']:>12.4f}",
+                    f"{scores['Rhythm MSE']:>12.4f}",
+                    f"{scores['Average MSE']:>12.4f}",
+                    f"{scores['Pitch AUC']:>12.4f}",
+                    f"{scores['Rhythm AUC']:>12.4f}",
+                    f"{scores['Average AUC']:>12.4f}"
+                ]
+                print(f"{approach:<15} " + " ".join(values))
+            print("-" * 110)
+            input("\nPress Enter to continue...")
         elif choice == '2':
             plot_mse_comparison(results)
         elif choice == '3':
@@ -556,7 +596,7 @@ def interactive_evaluation():
         elif choice == '5':
             plot_f1_threshold_curves(similarity_reports)
         elif choice == '6':
-            print_evaluation_results(results)
+            print_evaluation_results(results, show_pr_analysis=True)
             plot_mse_comparison(results)
             plot_auc_comparison(results)
             plot_roc_curves(similarity_reports)

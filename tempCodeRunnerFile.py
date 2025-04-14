@@ -1,1 +1,1 @@
-weights for the complements
+a discrete view of P/R values at regular intervals
