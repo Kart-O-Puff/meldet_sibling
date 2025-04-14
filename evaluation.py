@@ -8,7 +8,8 @@ from sklearn.metrics import roc_auc_score, roc_curve, f1_score, average_precisio
 Example of similarity report format for each approach:
 
 similarity_report_*.csv contains:
-Case,       Ruling,     Binary Ruling, Song1, Song2, Pitch Similarity, Rhythm Similarity
+Case,       Ruling,     Binary Ruling
+, Song1, Song2, Pitch Similarity, Rhythm Similarity
 Case_001,   Plagiarism, 1,            A.mp3, B.mp3, 85.5,            76.2
 Case_002,   Original,   0,            C.mp3, D.mp3, 45.2,            38.9
 ...
@@ -347,8 +348,51 @@ def plot_f1_threshold_curves(similarity_reports):
     plt.tight_layout()
     plt.show()
 
+def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
+    """
+    Display a table showing threshold analysis with precision and recall values.
+    
+    Args:
+        similarity_df: DataFrame containing similarity scores and binary rulings
+        feature: String indicating which feature to analyze ('Pitch Similarity' or 'Rhythm Similarity')
+    """
+    scores = similarity_df[feature].values / 100  # Normalize scores to [0,1]
+    y_true = similarity_df['Binary Ruling'].values
+    
+    # Generate thresholds
+    thresholds = np.arange(0.0, 1.1, 0.1)
+    
+    results = []
+    for threshold in thresholds:
+        y_pred = (scores >= threshold).astype(int)
+        tp = np.sum((y_pred == 1) & (y_true == 1))
+        fp = np.sum((y_pred == 1) & (y_true == 0))
+        fn = np.sum((y_pred == 0) & (y_true == 1))
+        
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        
+        results.append({
+            'Threshold': threshold,
+            'True Positives': tp,
+            'False Positives': fp,
+            'Precision': precision,
+            'Recall': recall
+        })
+    
+    # Create DataFrame and format it
+    df = pd.DataFrame(results)
+    df = df.round(3)
+    
+    print(f"\nPrecision-Recall Analysis for {feature}")
+    print("-" * 80)
+    print(df.to_string(index=False))
+    print("-" * 80)
+    return df
+
 def print_evaluation_results(results):
     """Print detailed evaluation results in a formatted table."""
+    # First print the original table
     print("\nEvaluation Results:")
     print("-" * 140)
     headers = ['Approach', 'Pitch MSE', 'Rhythm MSE', 'Avg MSE', 
@@ -376,6 +420,13 @@ def print_evaluation_results(results):
         ]
         print(f"{approach:<15} " + " ".join(values))
     print("-" * 140)
+    
+    # Add precision-recall analysis tables
+    similarity_reports = load_similarity_reports()
+    for approach, df in similarity_reports.items():
+        print(f"\n{approach} Analysis:")
+        display_pr_analysis_table(df, 'Pitch Similarity')
+        display_pr_analysis_table(df, 'Rhythm Similarity')
 
 def save_evaluation_report(results, output_path):
     """Save evaluation results to CSV."""
@@ -415,6 +466,20 @@ def show_menu():
     print("7. Exit")
     return input("\nSelect an option (1-7): ")
 
+def show_approach_menu(approaches):
+    """Display menu for selecting an approach and feature."""
+    print("\nSelect an analysis option:")
+    print("=" * 30)
+    for i, approach in enumerate(approaches, 1):
+        print(f"{i}. {approach} - Pitch Analysis")
+        print(f"{i+len(approaches)}. {approach} - Rhythm Analysis")
+    next_num = 2 * len(approaches) + 1
+    print(f"{next_num}. All Approaches - Pitch Analysis")
+    print(f"{next_num+1}. All Approaches - Rhythm Analysis")
+    print(f"{next_num+2}. All Approaches - Both Analyses")
+    print("0. Back to main menu")
+    return input(f"\nSelect an option (0-{next_num+2}): ")
+
 def interactive_evaluation():
     """Run evaluation with interactive menu."""
     print("\nLoading and analyzing similarity reports...")
@@ -442,6 +507,52 @@ def interactive_evaluation():
             plot_auc_comparison(results)
         elif choice == '4':
             plot_pr_curves(similarity_reports)
+            # Approach selection submenu
+            approaches = list(similarity_reports.keys())
+            n_approaches = len(approaches)
+            while True:
+                approach_choice = show_approach_menu(approaches)
+                if approach_choice == '0':
+                    break
+                elif approach_choice.isdigit():
+                    choice_num = int(approach_choice)
+                    if 1 <= choice_num <= n_approaches:
+                        # Pitch analysis for specific approach
+                        approach = approaches[choice_num - 1]
+                        print(f"\nPitch Analysis for {approach}:")
+                        display_pr_analysis_table(similarity_reports[approach], 'Pitch Similarity')
+                    elif n_approaches < choice_num <= 2 * n_approaches:
+                        # Rhythm analysis for specific approach
+                        approach = approaches[choice_num - n_approaches - 1]
+                        print(f"\nRhythm Analysis for {approach}:")
+                        display_pr_analysis_table(similarity_reports[approach], 'Rhythm Similarity')
+                    elif choice_num == 2 * n_approaches + 1:
+                        # All approaches - Pitch
+                        print("\nPitch Analysis for All Approaches:")
+                        for approach, df in similarity_reports.items():
+                            print(f"\n{approach}:")
+                            display_pr_analysis_table(df, 'Pitch Similarity')
+                    elif choice_num == 2 * n_approaches + 2:
+                        # All approaches - Rhythm
+                        print("\nRhythm Analysis for All Approaches:")
+                        for approach, df in similarity_reports.items():
+                            print(f"\n{approach}:")
+                            display_pr_analysis_table(df, 'Rhythm Similarity')
+                    elif choice_num == 2 * n_approaches + 3:
+                        # All approaches - Both
+                        print("\nComplete Analysis for All Approaches:")
+                        for approach, df in similarity_reports.items():
+                            print(f"\n{approach}:")
+                            display_pr_analysis_table(df, 'Pitch Similarity')
+                            display_pr_analysis_table(df, 'Rhythm Similarity')
+                    else:
+                        print("\nInvalid choice. Please try again.")
+                else:
+                    print("\nInvalid choice. Please try again.")
+                
+                if approach_choice != '0':
+                    input("\nPress Enter to see approach menu again...")
+        
         elif choice == '5':
             plot_f1_threshold_curves(similarity_reports)
         elif choice == '6':
