@@ -1,1 +1,1 @@
-window_size=8
+weights for the complements

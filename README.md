@@ -18,5 +18,5 @@ repository nila FeBiLair 👩🏻‍🎓👨🏻‍🎓👩🏻‍🎓
 - We now compare our proposed approach with Sum Common with Jaccard-like Normalization, the Original Tversky Measure and Hungarian Approach for similarity scoring. 
 
 ## Mga Kailangan pang gawin:
-- Maglagay pa ng test cases sa MCIC_Dataset > MCIC_Raw para matest ang performance ng similarity scoring ng mga approach sa iba't ibang case.
+- Mayroon na tayong 15 cases of plagiarism and 15 cases of no plagiarism to be tested (See MCIC_Raw folder).
 - I-test at evaluate ang tatlong approach sa iba't ibang window size at step size.
