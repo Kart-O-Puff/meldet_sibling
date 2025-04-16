@@ -336,6 +336,31 @@ def main():
     pitch_interpretation = interpret_similarity(pitch_similarity)
     rhythm_interpretation = interpret_similarity(rhythm_similarity)
     
+    # Prepare results and initialize output path
+    results = {
+        'File1': file1.name,
+        'File2': file2.name,
+        'Window_Size': window_size,
+        'Step_Size': step_size,
+        'Absolute_Pitch_Ngrams_File1': str([list(map(int, pitches1))]),
+        'Absolute_Pitch_Ngrams_File2': str([list(map(int, pitches2))]),
+        'Absolute_Rhythm_Ngrams_File1': str([list(map(float, durations1))]),
+        'Absolute_Rhythm_Ngrams_File2': str([list(map(float, durations2))]),
+        'Relative_Pitch_File1': str(relative_pitch1),
+        'Relative_Pitch_File2': str(relative_pitch2),
+        'Relative_Rhythm_File1': str(relative_rhythm1),
+        'Relative_Rhythm_File2': str(relative_rhythm2),
+        'Pitch_Similarity': f"{pitch_similarity:.2f}%",
+        'Pitch_Interpretation': pitch_interpretation,
+        'Rhythm_Similarity': f"{rhythm_similarity:.2f}%",
+        'Rhythm_Interpretation': rhythm_interpretation
+    }
+    
+    # Save results to CSV and set output path
+    df = pd.DataFrame([results])
+    output_path = base_path / f"similarity_{file1.stem}_and_{file2.stem}.csv"
+    df.to_csv(output_path, index=False)
+    
     # Display results menu
     while True:
         print("\nVisualization Options:")
@@ -350,7 +375,7 @@ def main():
         choice = input("\nSelect visualization option (1-7): ")
         
         if choice == '1':
-            print("\nAnalysis Results:")
+            print(f"\nSimilarity Scores for '{file1.name}' and '{file2.name}':")
             print(f"Pitch Similarity: {pitch_similarity:.2f}% - {pitch_interpretation}")
             print(f"Rhythm Similarity: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
         
@@ -449,39 +474,19 @@ def main():
                         song1=file1.name, song2=file2.name)
         
         elif choice == '7':
+            # Show final results before exiting
+            print(f"\nFinal Similarity Analysis Results for '{file1.name}' and '{file2.name}':")
+            print(f"Pitch Similarity: {pitch_similarity:.2f}% - {pitch_interpretation}")
+            print(f"Rhythm Similarity: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
+            print(f"\nResults saved to: {output_path}")
             break
         else:
             print("Invalid choice. Please try again.")
     
-    # Prepare results
-    results = {
-        'File1': file1.name,
-        'File2': file2.name,
-        'Window_Size': window_size,
-        'Step_Size': step_size,
-        'Absolute_Pitch_Ngrams_File1': str([list(map(int, pitches1))]),
-        'Absolute_Pitch_Ngrams_File2': str([list(map(int, pitches2))]),
-        'Absolute_Rhythm_Ngrams_File1': str([list(map(float, durations1))]),
-        'Absolute_Rhythm_Ngrams_File2': str([list(map(float, durations2))]),
-        'Relative_Pitch_File1': str(relative_pitch1),
-        'Relative_Pitch_File2': str(relative_pitch2),
-        'Relative_Rhythm_File1': str(relative_rhythm1),
-        'Relative_Rhythm_File2': str(relative_rhythm2),
-        'Pitch_Similarity': f"{pitch_similarity:.2f}%",
-        'Pitch_Interpretation': pitch_interpretation,
-        'Rhythm_Similarity': f"{rhythm_similarity:.2f}%",
-        'Rhythm_Interpretation': rhythm_interpretation
-    }
-    
-    # Save results to CSV
-    df = pd.DataFrame([results])
-    output_path = base_path / "single_case_results.csv"
-    df.to_csv(output_path, index=False)
-    
     # Display results
-    print("\nAnalysis Results:")
-    print(f"Pitch Similarity: {pitch_similarity:.2f}% - {pitch_interpretation}")
-    print(f"Rhythm Similarity: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
+    print(f"\nSimilarity Scores for '{file1.name}' and '{file2.name}':")
+    print(f"Pitch Similarity Score: {pitch_similarity:.2f}% - {pitch_interpretation}")
+    print(f"Rhythm Similarity Score: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
     print(f"\nResults saved to: {output_path}")
 
 if __name__ == "__main__":
