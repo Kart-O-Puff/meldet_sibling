@@ -380,6 +380,8 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
         tp = int(np.sum((y_pred == 1) & (y_true == 1)))  # Correctly identified plagiarism
         fp = int(np.sum((y_pred == 1) & (y_true == 0)))  # False plagiarism alerts
         fn = int(np.sum((y_pred == 0) & (y_true == 1)))  # Missed plagiarism cases
+        tn = int(np.sum((y_pred == 0) & (y_true == 0)))  # Correctly identified non-plagiarism
+
         
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
@@ -388,6 +390,8 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
             'Threshold': threshold,
             'True Positives': tp,
             'False Positives': fp,
+            'False Negatives': fn,
+            'True Negatives': tn,
             'Precision': precision,
             'Recall': recall
         })
@@ -396,16 +400,16 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
     print("=" * 85)
     print("If we consider scores above X as plagiarism:")
     print("-" * 85)
-    print(f"{'X (threshold)':>15} {'Correct':>12} {'False':>12} {'Precision':>12} {'Recall':>12}")
-    print(f"{'(as %)':>15} {'Detections':>12} {'Alerts':>12} {'Rate':>12} {'Rate':>12}")
+    print(f"{'X (threshold)':>15} {'Detected':>15} {'Detected as NOT':>15} {'Missed':>15} {'Accuracy of ':>15} {'Coverage of Real ':>15}")
+    print(f"{'(as %)':>15} {'Plagiarism (Correct)':>20} {'Plagiarism':>15} {'Actual Plagiarism':>15} {'Detection':>15} {'Plagiarism Cases':>15}")
     print("-" * 85)
     
     for row in results:
         threshold_pct = row['Threshold'] * 100
-        print(f"{threshold_pct:>15.1f}% {row['True Positives']:>12d} {row['False Positives']:>12d} {row['Precision']:>12.4f} {row['Recall']:>12.4f}")
+        print(f"{threshold_pct:>15.1f}% {row['True Positives']:>12d} {row['False Positives']:>12d} {row['False Negatives']:>12d} {row['Precision']:>12.4f} {row['Recall']:>12.4f}")
     print("-" * 85)
-    print("Precision Rate = Correct detections / Total detections (accuracy of plagiarism alerts)")
-    print("Recall Rate = Correct detections / Total actual plagiarism cases (coverage of plagiarism cases)")
+    print("Precision Rate = Detected Plagiarism (Correct) / Total Detections (Accuracy of Plagiarism Detection)")
+    print("Recall Rate = Detected Plagiarism (Correct) / Total Actual Plagiarism Cases")
 
 def print_evaluation_results(results, show_pr_analysis=False):
     """Print detailed evaluation results in a formatted table."""
@@ -481,11 +485,12 @@ def show_menu():
     print("1. Show Basic Statistics")
     print("2. Show MSE Comparison")
     print("3. Show AUC-ROC Comparison")
-    print("4. Show Precision-Recall Analysis")
-    print("5. Show F1 Threshold Analysis")
-    print("6. Generate Full Report (All Metrics)")
-    print("7. Exit")
-    return input("\nSelect an option (1-7): ")
+    print("4. Show AUC-PR Comparison")
+    print("5. Show Precision-Recall Analysis")
+    print("6. Show F1 Threshold Analysis")
+    print("7. Generate Full Report (All Metrics)")
+    print("8. Exit")
+    return input("\nSelect an option (1-8): ")
 
 def show_approach_menu(approaches):
     """Display menu for selecting an approach and feature."""
@@ -547,7 +552,8 @@ def interactive_evaluation():
             plot_auc_comparison(results)
         elif choice == '4':
             plot_pr_curves(similarity_reports)
-            # Approach selection submenu
+        elif choice == '5':
+            # Approach selection submenu for PR Analysis
             approaches = list(similarity_reports.keys())
             n_approaches = len(approaches)
             while True:
@@ -593,22 +599,22 @@ def interactive_evaluation():
                 if approach_choice != '0':
                     input("\nPress Enter to see approach menu again...")
         
-        elif choice == '5':
-            plot_f1_threshold_curves(similarity_reports)
         elif choice == '6':
+            plot_f1_threshold_curves(similarity_reports)
+        elif choice == '7':
             print_evaluation_results(results, show_pr_analysis=True)
             plot_mse_comparison(results)
             plot_auc_comparison(results)
             plot_roc_curves(similarity_reports)
             plot_pr_curves(similarity_reports)
             plot_f1_threshold_curves(similarity_reports)
-        elif choice == '7':
+        elif choice == '8':
             print("\nExiting evaluation. Goodbye!")
             break
         else:
             print("\nInvalid choice. Please try again.")
         
-        if choice != '7':
+        if choice != '8':
             input("\nPress Enter to continue...")
 
 def main():
