@@ -316,12 +316,12 @@ def plot_auc_comparison(results):
 def plot_f1_threshold_curves(similarity_reports):
     """Plot F1-score vs threshold curves for all approaches."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-    thresholds = np.arange(0.01, 1.00, 0.01)
+    thresholds = np.arange(1, 100, 1)  # Thresholds as percentages
     
     # Plot for Pitch similarity
     for name, df in similarity_reports.items():
         f1_scores = []
-        scores = df['Pitch Similarity'].values / 100
+        scores = df['Pitch Similarity'].values  # Keep scores as percentages
         true_labels = df['Binary Ruling'].values
         
         for threshold in thresholds:
@@ -330,11 +330,11 @@ def plot_f1_threshold_curves(similarity_reports):
         
         best_threshold, best_f1 = find_best_threshold(true_labels, df['Pitch Similarity'])
         ax1.plot(thresholds, f1_scores, label=f'{name}')
-        ax1.axvline(x=best_threshold, color='gray', linestyle='--', alpha=0.5)
+        ax1.axvline(x=best_threshold*100, color='gray', linestyle='--', alpha=0.5)
         ax1.axhline(y=best_f1, color='gray', linestyle='--', alpha=0.5)
-        ax1.plot(best_threshold, best_f1, 'ro', label=f'{name} Best (t={best_threshold:.2f}, F1={best_f1:.2f})')
+        ax1.plot(best_threshold*100, best_f1, 'ro', label=f'{name} Best (t={best_threshold*100:.1f}%, F1={best_f1:.2f})')
     
-    ax1.set_xlabel('Threshold')
+    ax1.set_xlabel('Threshold (%)')
     ax1.set_ylabel('F1-Score')
     ax1.set_title('F1-Score vs Threshold - Pitch Similarity')
     ax1.legend()
@@ -343,7 +343,7 @@ def plot_f1_threshold_curves(similarity_reports):
     # Plot for Rhythm similarity
     for name, df in similarity_reports.items():
         f1_scores = []
-        scores = df['Rhythm Similarity'].values / 100
+        scores = df['Rhythm Similarity'].values  # Keep scores as percentages
         true_labels = df['Binary Ruling'].values
         
         for threshold in thresholds:
@@ -352,11 +352,11 @@ def plot_f1_threshold_curves(similarity_reports):
         
         best_threshold, best_f1 = find_best_threshold(true_labels, df['Rhythm Similarity'])
         ax2.plot(thresholds, f1_scores, label=f'{name}')
-        ax2.axvline(x=best_threshold, color='gray', linestyle='--', alpha=0.5)
+        ax2.axvline(x=best_threshold*100, color='gray', linestyle='--', alpha=0.5)
         ax2.axhline(y=best_f1, color='gray', linestyle='--', alpha=0.5)
-        ax2.plot(best_threshold, best_f1, 'ro', label=f'{name} Best (t={best_threshold:.2f}, F1={best_f1:.2f})')
+        ax2.plot(best_threshold*100, best_f1, 'ro', label=f'{name} Best (t={best_threshold*100:.1f}%, F1={best_f1:.2f})')
     
-    ax2.set_xlabel('Threshold')
+    ax2.set_xlabel('Threshold (%)')
     ax2.set_ylabel('F1-Score')
     ax2.set_title('F1-Score vs Threshold - Rhythm Similarity')
     ax2.legend()
@@ -381,10 +381,10 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
         fp = int(np.sum((y_pred == 1) & (y_true == 0)))  # False plagiarism alerts
         fn = int(np.sum((y_pred == 0) & (y_true == 1)))  # Missed plagiarism cases
         tn = int(np.sum((y_pred == 0) & (y_true == 0)))  # Correctly identified non-plagiarism
-
         
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
         
         results.append({
             'Threshold': threshold,
@@ -393,23 +393,28 @@ def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
             'False Negatives': fn,
             'True Negatives': tn,
             'Precision': precision,
-            'Recall': recall
+            'Recall': recall,
+            'F1-Score': f1
         })
     
     print(f"\nPlagiarism Detection Analysis for {feature}")
-    print("=" * 85)
+    print("=" * 100)
     print("If we consider scores above X as plagiarism:")
-    print("-" * 85)
-    print(f"{'X (threshold)':>15} {'Detected':>15} {'Detected as NOT':>15} {'Missed':>15} {'Accuracy of ':>15} {'Coverage of Real ':>15}")
-    print(f"{'(as %)':>15} {'Plagiarism (Correct)':>20} {'Plagiarism':>15} {'Actual Plagiarism':>15} {'Detection':>15} {'Plagiarism Cases':>15}")
-    print("-" * 85)
+    print("-" * 100)
+    print(f"{'X (threshold)':>12} {'True':>10} {'False':>10} {'False':>10} {'True':>10} {'Accuracy of':>12} {'Coverage of':>12} {'F1':>10}")
+    print(f"{'(as %)':>12} {'Pos':>10} {'Pos':>10} {'Neg':>10} {'Neg':>10} {'Detection':>12} {'Plagiarism':>12} {'Score':>10}")
+    print("-" * 100)
     
     for row in results:
         threshold_pct = row['Threshold'] * 100
-        print(f"{threshold_pct:>15.1f}% {row['True Positives']:>12d} {row['False Positives']:>12d} {row['False Negatives']:>12d} {row['Precision']:>12.4f} {row['Recall']:>12.4f}")
-    print("-" * 85)
-    print("Precision Rate = Detected Plagiarism (Correct) / Total Detections (Accuracy of Plagiarism Detection)")
-    print("Recall Rate = Detected Plagiarism (Correct) / Total Actual Plagiarism Cases")
+        print(f"{threshold_pct:>12.1f}% {row['True Positives']:>10d} {row['False Positives']:>10d} {row['False Negatives']:>10d} {row['True Negatives']:>10d} {row['Precision']:>12.4f} {row['Recall']:>12.4f} {row['F1-Score']:>10.4f}")
+    print("-" * 100)
+    print("True Positives (TP)  = Correctly identified plagiarism cases")
+    print("False Positives (FP) = Flagged as NOT plagiarism")
+    print("False Negatives (FN) = Missed plagiarism cases")
+    print("True Negatives (TN)  = Correctly flagged non-plagiarism cases")
+    print("Precision = TP / (TP + FP) = Accuracy of plagiarism detection")
+    print("Recall = TP / (TP + FN) = Coverage of actual plagiarism cases")
 
 def print_evaluation_results(results, show_pr_analysis=False):
     """Print detailed evaluation results in a formatted table."""
@@ -454,24 +459,24 @@ def print_evaluation_results(results, show_pr_analysis=False):
         pd.reset_option('display.float_format')
 
 def save_evaluation_report(results, output_path):
-    """Save evaluation results to CSV."""
+    """Save evaluation results to CSV with proper decimal formatting."""
     data = []
     for approach, scores in results.items():
         data.append({
             'Approach': approach,
-            'Pitch MSE': scores['Pitch MSE'],
-            'Rhythm MSE': scores['Rhythm MSE'],
-            'Average MSE': scores['Average MSE'],
-            'Pitch AUC': scores['Pitch AUC'],
-            'Rhythm AUC': scores['Rhythm AUC'],
-            'Average AUC': scores['Average AUC'],
-            'Pitch AUC-PR': scores['Pitch AUC-PR'],
-            'Rhythm AUC-PR': scores['Rhythm AUC-PR'],
-            'Average AUC-PR': scores['Average AUC-PR'],
-            'Pitch Threshold': scores['Pitch Threshold'],
-            'Pitch F1': scores['Pitch F1'],
-            'Rhythm Threshold': scores['Rhythm Threshold'],
-            'Rhythm F1': scores['Rhythm F1']
+            'Pitch MSE': f"{scores['Pitch MSE']:.4f}",
+            'Rhythm MSE': f"{scores['Rhythm MSE']:.4f}",
+            'Average MSE': f"{scores['Average MSE']:.4f}",
+            'Pitch AUC': f"{scores['Pitch AUC']:.4f}",
+            'Rhythm AUC': f"{scores['Rhythm AUC']:.4f}",
+            'Average AUC': f"{scores['Average AUC']:.4f}",
+            'Pitch AUC-PR': f"{scores['Pitch AUC-PR']:.4f}",
+            'Rhythm AUC-PR': f"{scores['Rhythm AUC-PR']:.4f}",
+            'Average AUC-PR': f"{scores['Average AUC-PR']:.4f}",
+            'Pitch Threshold (%)': f"{scores['Pitch Threshold']*100:.2f}",
+            'Rhythm Threshold (%)': f"{scores['Rhythm Threshold']*100:.2f}",
+            'Pitch F1': f"{scores['Pitch F1']:.4f}",
+            'Rhythm F1': f"{scores['Rhythm F1']:.4f}"
         })
     
     df = pd.DataFrame(data)
@@ -486,8 +491,8 @@ def show_menu():
     print("2. Show MSE Comparison")
     print("3. Show AUC-ROC Comparison")
     print("4. Show AUC-PR Comparison")
-    print("5. Show Precision-Recall Analysis")
-    print("6. Show F1 Threshold Analysis")
+    print("5. Show Thresholding Analysis")
+    print("6. Show Optimal Thresholds for Each Approach")
     print("7. Generate Full Report (All Metrics)")
     print("8. Exit")
     return input("\nSelect an option (1-8): ")
