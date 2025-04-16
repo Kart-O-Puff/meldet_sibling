@@ -485,14 +485,14 @@ def save_evaluation_report(results, output_path):
 
 def show_menu():
     """Display interactive menu for evaluation options."""
-    print("\nMelody Detection Evaluation Menu")
+    print("\nEvalution Menu for Similarity Reports of the Approaches")
     print("=" * 40)
     print("1. Show Basic Statistics")
     print("2. Show MSE Comparison")
     print("3. Show AUC-ROC Comparison")
     print("4. Show AUC-PR Comparison")
     print("5. Show Thresholding Analysis")
-    print("6. Show Optimal Thresholds for Each Approach")
+    print("6. Show Optimal Thresholds for Each Approach via F1-Scoring")
     print("7. Generate Full Report (All Metrics)")
     print("8. Exit")
     return input("\nSelect an option (1-8): ")
