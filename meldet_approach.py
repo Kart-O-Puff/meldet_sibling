@@ -198,36 +198,24 @@ def visualize_similarity_matrix(matrix, seq1, seq2, output_path):
     plt.savefig(output_path)
     plt.close()
 
-def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2=""):
+def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None):
     """
-    Visualize similarity/distance matrix with detailed values.
-    
-    Features:
-    1. Color-coded cells based on values
-    2. Reversed colormap for edit distance (darker = larger distance)
-    3. Best diagonal alignment highlighted in red
-    4. Detailed value labels in each cell
-    5. Comprehensive title with metadata
+    Visualize similarity/distance matrix with detailed values and forced diagonal position.
     """
     fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(14, 8))
     ax_table.axis('tight')
     ax_table.axis('off')
     
-    # Create row and column labels
     col_labels = [f'S2_{i}:{val}' for i, val in enumerate(seq2)]
     row_labels = [f'S1_{i}:{val}' for i, val in enumerate(seq1)]
-    
-    # Format matrix values
     cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
     
-    # Create table
     table = ax_table.table(cellText=cell_text,
                           rowLabels=row_labels,
                           colLabels=col_labels,
                           cellLoc='center',
                           loc='center')
     
-    # Set up color mapping
     if is_similarity:
         norm = plt.Normalize(vmin=0, vmax=1)
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
@@ -235,27 +223,14 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     else:
         norm = plt.Normalize(vmin=0, vmax=7)
         colorbar_label = 'Edit Distance\n(0: Most Similar, 7: Most Different)'
-        cmap = plt.cm.viridis_r  # Reversed colormap for edit distance
-    
-    # Find best diagonal with consistent logic
+        cmap = plt.cm.viridis_r
+
     m, n = matrix.shape
     min_len = min(m, n)
-    max_shift = abs(m - n) + 1
-    scores = []
-
-    for shift in range(max_shift):
-        if m <= n:
-            # seq1 is shorter
-            diag = [matrix[i, i + shift] for i in range(min_len)]
-        else:
-            # seq2 is shorter
-            diag = [matrix[i + shift, i] for i in range(min_len)]
-        scores.append(np.mean(diag))
     
-    # Choose best diagonal based on matrix type
-    best_shift = scores.index(min(scores)) if not is_similarity else scores.index(max(scores))
+    # Use the forced diagonal position if provided
+    best_shift = forced_diagonal if forced_diagonal is not None else 0
     
-    # Color cells and highlight best diagonal
     for i in range(len(seq1)):
         for j in range(len(seq2)):
             cell = table[i+1, j]
@@ -263,7 +238,7 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
             color = cmap(norm(value))
             cell.set_facecolor(color)
             
-            # Highlight cells that are part of best diagonal
+            # Highlight cells using the forced diagonal
             if m <= n and i < min_len and j == i + best_shift:
                 cell.set_edgecolor('red')
                 cell.set_linewidth(2)
@@ -271,16 +246,13 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
                 cell.set_edgecolor('red')
                 cell.set_linewidth(2)
     
-    # Add colorbar
     cmap_obj = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
     fig.colorbar(cmap_obj, cax=ax_colorbar, label=colorbar_label)
     
-    # Adjust table properties
     table.auto_set_font_size(False)
     table.set_fontsize(9)
     table.scale(1.2, 1.5)
     
-    # Enhanced title with song information and percentage score
     full_title = f"{title}\n"
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
@@ -291,8 +263,8 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     plt.tight_layout()
     plt.show()
 
-def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2=""):
-    """Plot similarity/distance matrix as a heatmap without detailed values."""
+def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None):
+    """Plot similarity/distance matrix as a heatmap with forced diagonal."""
     plt.figure(figsize=(10, 8))
     
     if is_similarity:
@@ -306,37 +278,18 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
-    # Add axis labels using song titles
     plt.xlabel(f"Song B: {song2}")
     plt.ylabel(f"Song A: {song1}")
     
     plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
     plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
     
-    # Find best diagonal with consistent logic
+    # Use the forced diagonal position
     m, n = matrix.shape
     min_len = min(m, n)
-    max_shift = abs(m - n) + 1
-    scores = []
-
-    for shift in range(max_shift):
-        if m <= n:
-            # seq1 is shorter
-            diag = [matrix[i, i + shift] for i in range(min_len)]
-        else:
-            # seq2 is shorter
-            diag = [matrix[i + shift, i] for i in range(min_len)]
-        scores.append(np.mean(diag))
+    best_shift = forced_diagonal if forced_diagonal is not None else 0
     
-    # Choose best diagonal based on matrix type
-    if not is_similarity:
-        # For edit distance, find minimum
-        best_shift = scores.index(min(scores))
-    else:
-        # For similarity, find maximum
-        best_shift = scores.index(max(scores))
-    
-    # Plot the best diagonal
+    # Plot the diagonal using the forced position
     if m <= n:
         plt.plot(range(best_shift, best_shift + min_len),
                 range(min_len),
@@ -358,33 +311,42 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     plt.tight_layout()
     plt.show()
 
-def calculate_similarity_score(matrix):
-    """
-    Calculate similarity score by finding the diagonal with highest average similarity.
-    Only considers valid diagonals within |m-n|+1 that have minimum length.
-    
-    Returns:
-    - Average similarity score of the best diagonal
-    """
+def find_best_diagonal(matrix, is_similarity=True):
+    """Find the best diagonal alignment in a matrix."""
     m, n = matrix.shape
-    min_len = min(m, n)  # Minimum length required for valid diagonal
-    max_shift = abs(m - n) + 1  # Number of possible shifts
+    min_len = min(m, n)
+    max_shift = abs(m - n) + 1
     scores = []
-
+    
     for shift in range(max_shift):
         if m <= n:
-            # seq1 is shorter, diagonal must have length m
             diag = [matrix[i, i + shift] for i in range(min_len)]
         else:
-            # seq2 is shorter, diagonal must have length n
             diag = [matrix[i + shift, i] for i in range(min_len)]
         scores.append(np.mean(diag))
+    
+    # For similarity matrices, find maximum; for distance matrices, find minimum
+    best_shift = scores.index(max(scores) if is_similarity else min(scores))
+    return best_shift, max(scores) if is_similarity else min(scores)
 
-    return max(scores)  # Return average similarity of best diagonal
+def calculate_similarity_score(matrix, forced_shift=None):
+    """Calculate similarity score using specified or best diagonal."""
+    m, n = matrix.shape
+    min_len = min(m, n)
+    
+    if forced_shift is not None:
+        if m <= n:
+            diag = [matrix[i, i + forced_shift] for i in range(min_len)]
+        else:
+            diag = [matrix[i + forced_shift, i] for i in range(min_len)]
+        return np.mean(diag)
+    
+    # If no forced_shift, find best diagonal
+    best_shift, best_score = find_best_diagonal(matrix)
+    return best_score
 
 def analyze_case(df, case_number, show_visualizations=False):
     """Perform complete similarity analysis for a song pair."""
-    # Get sequences for the specific case
     case_data = df[df['Case'] == case_number].reset_index(drop=True)
     
     if len(case_data) != 2:
@@ -399,21 +361,39 @@ def analyze_case(df, case_number, show_visualizations=False):
     song1_title = case_data.loc[0, 'File Name']
     song2_title = case_data.loc[1, 'File Name']
     
-    # Create cost matrices with n-gram lengths
+    # Create matrices
     pitch_distances, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
     rhythm_distances, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
     
-    # Transform to similarity scores [0,1] using actual n-gram lengths
     pitch_similarities = log_transform_distances(pitch_distances, pitch_ngram_len)
     rhythm_similarities = log_transform_distances(rhythm_distances, rhythm_ngram_len)
     
-    # Calculate final scores using the best diagonal
-    pitch_similarity = calculate_similarity_score(pitch_similarities)
-    rhythm_similarity = calculate_similarity_score(rhythm_similarities)
+    # Find best diagonal from pitch similarity matrix only
+    best_shift = 0
+    m, n = pitch_similarities.shape
+    min_len = min(m, n)
+    max_shift = abs(m - n) + 1
+    max_score = 0
+
+    # Calculate best diagonal from pitch matrix
+    for shift in range(max_shift):
+        if m <= n:
+            diag = [pitch_similarities[i, i + shift] for i in range(min_len)]
+        else:
+            diag = [pitch_similarities[i + shift, i] for i in range(min_len)]
+        avg_score = np.mean(diag)
+        if avg_score > max_score:
+            max_score = avg_score
+            best_shift = shift
+    
+    # Use pitch's best diagonal for both calculations
+    pitch_similarity = calculate_similarity_score(pitch_similarities, forced_shift=best_shift)
+    rhythm_similarity = calculate_similarity_score(rhythm_similarities, forced_shift=best_shift)
     
     print(f"\nFinal Similarity Scores for {case_number}:")
     print(f"Pitch Similarity: {pitch_similarity * 100:.2f}%")
     print(f"Rhythm Similarity: {rhythm_similarity * 100:.2f}%")
+    print(f"Using diagonal position: {best_shift}")
     
     if show_visualizations:
         print("\nVisualization Options:")
@@ -431,22 +411,26 @@ def analyze_case(df, case_number, show_visualizations=False):
             if viz_type in ['1', '3']:
                 plot_matrix_as_table(distances, seq1, seq2, 
                                    f"Edit Distance Matrix Values ({feature})",
-                                   song1=song1_title, song2=song2_title)
+                                   song1=song1_title, song2=song2_title,
+                                   forced_diagonal=best_shift)
                 plot_matrix_as_table(similarities, seq1, seq2, 
                                    f"Similarity Matrix Values ({feature})", 
                                    is_similarity=True,
                                    similarity_score=score,
-                                   song1=song1_title, song2=song2_title)
+                                   song1=song1_title, song2=song2_title,
+                                   forced_diagonal=best_shift)
             
             if viz_type in ['2', '3']:
                 plot_heatmap(distances, seq1, seq2,
                            f"Edit Distance Heatmap ({feature})",
-                           song1=song1_title, song2=song2_title)
+                           song1=song1_title, song2=song2_title,
+                           forced_diagonal=best_shift)
                 plot_heatmap(similarities, seq1, seq2,
                            f"Similarity Heatmap ({feature})",
                            is_similarity=True,
                            similarity_score=score,
-                           song1=song1_title, song2=song2_title)
+                           song1=song1_title, song2=song2_title,
+                           forced_diagonal=best_shift)
 
 def analyze_all_cases(df, show_plots=False):
     """Analyze all cases in the dataset."""
@@ -475,9 +459,12 @@ def analyze_all_cases(df, show_plots=False):
         pitch_similarities = log_transform_distances(pitch_matrix, pitch_ngram_len)
         rhythm_similarities = log_transform_distances(rhythm_matrix, rhythm_ngram_len)
         
-        # Calculate final scores using best diagonal
-        pitch_similarity = calculate_similarity_score(pitch_similarities)
-        rhythm_similarity = calculate_similarity_score(rhythm_similarities)
+        # Find best diagonal from pitch similarity matrix
+        best_shift, _ = find_best_diagonal(pitch_similarities, is_similarity=True)
+        
+        # Calculate scores using the same diagonal for both pitch and rhythm
+        pitch_similarity = calculate_similarity_score(pitch_similarities, forced_shift=best_shift)
+        rhythm_similarity = calculate_similarity_score(rhythm_similarities, forced_shift=best_shift)
         
         results.append({
             'Case': case,
@@ -492,11 +479,13 @@ def analyze_all_cases(df, show_plots=False):
             plot_matrix_as_table(pitch_matrix, seq1_pitch, seq2_pitch, 
                            f"Pitch Cost Matrix - {case} ({ruling})\nSimilarity Score: {pitch_similarity}",
                            is_similarity=True,
-                           song1=song1_title, song2=song2_title)
+                           song1=song1_title, song2=song2_title,
+                           forced_diagonal=best_shift)
             plot_matrix_as_table(rhythm_matrix, seq1_rhythm, seq2_rhythm, 
                            f"Rhythm Cost Matrix - {case} ({ruling})\nSimilarity Score: {rhythm_similarity}",
                            is_similarity=True,
-                           song1=song1_title, song2=song2_title)
+                           song1=song1_title, song2=song2_title,
+                           forced_diagonal=best_shift)
     
     return results
 
