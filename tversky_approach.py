@@ -83,24 +83,25 @@ def plot_similarity_comparison(similarity, title, song1, song2):
     """Plot similarity value with formula explanation."""
     plt.figure(figsize=(12, 6))
     
+    # Convert to percentage for display
+    similarity_pct = similarity * 100
+    
     # Create single bar for similarity score
-    plt.bar(['Tversky Similarity'], [similarity], color='skyblue', alpha=0.6)
+    plt.bar(['Tversky Similarity'], [similarity_pct], color='skyblue', alpha=0.6)
     
     # Add score label
-    decimal_score = round(similarity, 4)
-    percentage = decimal_score * 100
-    plt.text(0, similarity + 0.02, f'{percentage:.2f}%', ha='center')
+    plt.text(0, similarity_pct + 2, f'{similarity_pct:.2f}%', ha='center')
     
     plt.title(f"Tversky Analysis\n{title}\n{song1} vs {song2}")
-    plt.ylabel("Similarity Score")
-    plt.ylim(0, 1.15)
+    plt.ylabel("Similarity Score (%)")
+    plt.ylim(0, 115)
     plt.grid(True, alpha=0.3)
     
-    # Add formula explanation
+    # Add formula explanation with percentage
     info_text = (
-        f'Tversky Similarity Score: {percentage:.2f}%\n\n'
+        f'Tversky Similarity Score: {similarity_pct:.2f}%\n\n'
         f'Formula:\n'
-        f'|A ∩ B| / (|A ∩ B| + α|A\\B| + β|B\\A|)\n\n'
+        f'|A ∩ B| / (|A ∩ B| + α|A\\B| + β|B\\A|) × 100%\n\n'
         f'where:\n'
         f'A, B = sets of n-grams\n'
         f'|A ∩ B| = common elements\n'
@@ -171,10 +172,9 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
                 ha='center', va='bottom')
     
     # Format score for display
-    decimal_score = round(similarity_score, 4)
-    percentage = decimal_score * 100
+    similarity_pct = similarity_score * 100
     
-    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nTversky Score: {percentage:.2f}%")
+    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nTversky Score: {similarity_pct:.2f}%")
     plt.ylabel('Number of N-grams')
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -191,11 +191,11 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'   |A\\B| = {unique_s1} (unique to Song 1)\n'
         f'   |B\\A| = {unique_s2} (unique to Song 2)\n\n'
         f'3. Parameters:\n'
-        f'   α = {len1}/{len1 + len2} = {alpha}\n'
-        f'   β = {len2}/{len1 + len2} = {beta}\n\n'
+        f'   α = {len1}/{len1 + len2} = {alpha:.4f}\n'
+        f'   β = {len2}/{len1 + len2} = {beta:.4f}\n\n'
         f'4. Final Score:\n'
-        f'   {common} / ({common} + {alpha}*{unique_s1} + {beta}*{unique_s2})\n'
-        f'   = {similarity_score:.4f}'
+        f'   ({common} / ({common} + {alpha:.4f}*{unique_s1} + {beta:.4f}*{unique_s2})) × 100\n'
+        f'   = {similarity_pct:.2f}%'
     )
     
     plt.text(1.15, 0.98, calc_text,
@@ -344,8 +344,8 @@ def interactive_menu(df):
                 result = analyze_case(df, case)
                 if result:
                     print(f"\nResults for {case}:")
-                    print(f"Pitch Similarity: {result['Pitch Similarity']:.4f}")
-                    print(f"Rhythm Similarity: {result['Rhythm Similarity']:.4f}")
+                    print(f"Pitch Similarity: {result['Pitch Similarity'] * 100:.2f}%")
+                    print(f"Rhythm Similarity: {result['Rhythm Similarity'] * 100:.2f}%")
             else:
                 print("Invalid case number!")
         elif choice == '3':

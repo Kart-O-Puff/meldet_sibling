@@ -64,20 +64,23 @@ def plot_similarity_comparison(similarities, title, song1, song2):
     """
     plt.figure(figsize=(12, 6))
     
+    # Convert to percentage for display
+    similarities_pct = similarities * 100
+    
     # Single bar showing Jaccard similarity
-    plt.bar(['Jaccard Similarity'], [similarities], color='skyblue', alpha=0.6)
+    plt.bar(['Jaccard Similarity'], [similarities_pct], color='skyblue', alpha=0.6)
     
     # Add score label
-    plt.text(0, similarities + 0.02, f'{similarities:.4f}', ha='center')
+    plt.text(0, similarities_pct + 2, f'{similarities_pct:.2f}%', ha='center')
     
     plt.title(f"{title}\n{song1} vs {song2}")
-    plt.ylabel("Similarity Score")
-    plt.ylim(0, 1.15)
+    plt.ylabel("Similarity Score (%)")
+    plt.ylim(0, 115)
     plt.grid(True, alpha=0.3)
     
     # Add info box
     info_text = (
-        f'Jaccard Similarity Score: {similarities:.4f}\n'
+        f'Jaccard Similarity Score: {similarities_pct:.2f}%\n'
         f'Method: Complete N-gram Sequence Comparison\n'
         f'(Exact matches of entire n-gram sequences)'
     )
@@ -139,8 +142,8 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'Unique to Song 2: {unique_to_s2}\n'
         f'Total Sequences in Song 1: {len(seq1_units)}\n'
         f'Total Sequences in Song 2: {len(seq2_units)}\n'
-        f'Jaccard Similarity = {common}/({len(seq1_units)} + {len(seq2_units)} - {common})'
-        f' = {similarity_score:.4f}'
+        f'Jaccard Similarity = ({common}/{len(seq1_units) + len(seq2_units) - common})'
+        f' = {similarity_score * 100:.2f}%'
     )
     plt.text(0.02, 0.98, info_text,
              transform=plt.gca().transAxes,
@@ -304,8 +307,8 @@ def interactive_menu(df):
                 result = analyze_case(df, case)
                 if result:
                     print(f"\nResults for {case}:")
-                    print(f"Pitch Similarity: {result['Pitch Similarity']:.4f}")
-                    print(f"Rhythm Similarity: {result['Rhythm Similarity']:.4f}")
+                    print(f"Pitch Similarity: {result['Pitch Similarity'] * 100:.2f}%")
+                    print(f"Rhythm Similarity: {result['Rhythm Similarity'] * 100:.2f}%")
             else:
                 print("Invalid case number!")
         elif choice == '3':
