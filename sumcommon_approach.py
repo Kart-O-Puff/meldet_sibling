@@ -116,7 +116,7 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     # Add value labels
     for i in range(len(songs)):
         plt.text(i, common_values[i]/2, 
-                f'Matching: {common_values[i]}', 
+                f'Common: {common_values[i]}', 
                 ha='center', va='center')
         plt.text(i, common_values[i] + unique_values[i]/2,
                 f'Unique: {unique_values[i]}',
@@ -131,7 +131,7 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     
     # Add info box on the right side
     info_text = (
-        f'Matching N-gram Sequences: {common}\n'
+        f'Common N-gram Sequences: {common}\n'
         f'Unique to Song A: {unique_to_s1}\n'
         f'Unique to Song B: {unique_to_s2}\n'
         f'Total Sequences in Song A: {len(seq1_units)}\n'
