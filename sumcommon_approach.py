@@ -58,11 +58,8 @@ def calculate_common_elements(seq1, seq2):
         return 0.0
 
 def plot_similarity_comparison(similarities, title, song1, song2):
-    """
-    Plot similarity scores for complete n-gram sequence comparison.
-    Shows the Jaccard similarity based on exact n-gram sequence matches.
-    """
-    plt.figure(figsize=(12, 6))
+    """Plot similarity scores for complete n-gram sequence comparison."""
+    plt.figure(figsize=(14, 6))  # Increased figure width to accommodate legend
     
     # Convert to percentage for display
     similarities_pct = similarities * 100
@@ -78,13 +75,13 @@ def plot_similarity_comparison(similarities, title, song1, song2):
     plt.ylim(0, 115)
     plt.grid(True, alpha=0.3)
     
-    # Add info box
+    # Add info box - moved to the right side
     info_text = (
         f'Jaccard Similarity Score: {similarities_pct:.2f}%\n'
         f'Method: Complete N-gram Sequence Comparison\n'
         f'(Exact matches of entire n-gram sequences)'
     )
-    plt.text(0.02, 0.98, info_text,
+    plt.text(1.02, 0.98, info_text,
              transform=plt.gca().transAxes,
              bbox=dict(facecolor='white', alpha=0.8),
              verticalalignment='top',
@@ -102,21 +99,19 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     # Calculate set operations on complete sequences
     common = len(seq1_units.intersection(seq2_units))
     unique_to_s1 = len(seq1_units.difference(seq2_units))
-    unique_to_s2 = len(seq2_units.difference(seq1_units))  # Fixed: now comparing with seq1_units
+    unique_to_s2 = len(seq2_units.difference(seq1_units))
     
-    # Create stacked bar chart
-    plt.figure(figsize=(12, 6))
+    # Create stacked bar chart with increased figure width
+    plt.figure(figsize=(14, 6))
     
-    songs = ['Song 1', 'Song 2']
+    songs = ['Song A', 'Song B']
     common_values = [common, common]
     unique_values = [unique_to_s1, unique_to_s2]
     
     bar_width = 0.35
-    plt.bar(songs, common_values, bar_width, 
-            label='Matching N-gram Sequences', color='green', alpha=0.6)
+    plt.bar(songs, common_values, bar_width, color='green', alpha=0.6)
     plt.bar(songs, unique_values, bar_width, 
-            bottom=common_values, label='Unique N-gram Sequences', 
-            color=['blue', 'red'], alpha=0.6)
+            bottom=common_values, color=['blue', 'red'], alpha=0.6)
     
     # Add value labels
     for i in range(len(songs)):
@@ -132,23 +127,22 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     
     plt.title(f"{title} N-gram Sequence Analysis\n{song1} vs {song2}\nJaccard Similarity: {similarity_score * 100:.2f}%")
     plt.ylabel('Number of N-gram Sequences')
-    plt.legend(loc='upper right')
     plt.grid(True, alpha=0.3)
     
-    # Add info box with Jaccard calculation
+    # Add info box on the right side
     info_text = (
         f'Matching N-gram Sequences: {common}\n'
-        f'Unique to Song 1: {unique_to_s1}\n'
-        f'Unique to Song 2: {unique_to_s2}\n'
-        f'Total Sequences in Song 1: {len(seq1_units)}\n'
-        f'Total Sequences in Song 2: {len(seq2_units)}\n'
+        f'Unique to Song A: {unique_to_s1}\n'
+        f'Unique to Song B: {unique_to_s2}\n'
+        f'Total Sequences in Song A: {len(seq1_units)}\n'
+        f'Total Sequences in Song B: {len(seq2_units)}\n'
         f'Jaccard Similarity = ({common}/{len(seq1_units) + len(seq2_units) - common})'
         f' = {similarity_score * 100:.2f}%'
     )
-    plt.text(0.02, 0.98, info_text,
+    plt.text(1.02, 0.98, info_text,
              transform=plt.gca().transAxes,
              bbox=dict(facecolor='white', alpha=0.8),
-             verticalalignment='top',
+             verticalalignment='bottom',
              fontsize=9)
     
     plt.tight_layout()
@@ -191,8 +185,8 @@ def analyze_case(df, case_number):
     return {
         'Case': case_number,
         'Ruling': case_data.loc[0, 'Ruling'],
-        'Song 1': case_data.loc[0, 'File Name'],
-        'Song 2': case_data.loc[1, 'File Name'],
+        'Song A': case_data.loc[0, 'File Name'],
+        'Song B': case_data.loc[1, 'File Name'],
         'Pitch Similarity': pitch_score,
         'Rhythm Similarity': rhythm_score
     }
@@ -246,8 +240,8 @@ def analyze_case_with_visualization(df, case_number):
     return {
         'Case': case_number,
         'Ruling': case_data.loc[0, 'Ruling'],
-        'Song 1': case_data.loc[0, 'File Name'],
-        'Song 2': case_data.loc[1, 'File Name'],
+        'Song A': case_data.loc[0, 'File Name'],
+        'Song B': case_data.loc[1, 'File Name'],
         'Pitch Similarity': pitch_score,
         'Rhythm Similarity': rhythm_score
     }
@@ -279,7 +273,7 @@ def save_similarity_report(results, output_path):
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
     # Reorder columns
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song 1', 'Song 2', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

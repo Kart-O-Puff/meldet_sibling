@@ -144,7 +144,7 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     plt.figure(figsize=(15, 8))
     
     # Bar chart showing set cardinalities
-    songs = ['Song 1', 'Song 2']
+    songs = ['Song A', 'Song B']
     common = len(intersection)
     unique_s1 = len(unique_to_s1)
     unique_s2 = len(unique_to_s2)
@@ -184,12 +184,12 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'Tversky Similarity Calculation:\n\n'
         f'Set Analysis:\n'
         f'1. Sequence Lengths:\n'
-        f'   - Song 1: {len1} n-grams\n'
-        f'   - Song 2: {len2} n-grams\n\n'
+        f'   - Song A: {len1} n-grams\n'
+        f'   - Song B: {len2} n-grams\n\n'
         f'2. Set Operations:\n'
         f'   |A ∩ B| = {common} (common)\n'
-        f'   |A\\B| = {unique_s1} (unique to Song 1)\n'
-        f'   |B\\A| = {unique_s2} (unique to Song 2)\n\n'
+        f'   |A\\B| = {unique_s1} (unique to Song A)\n'
+        f'   |B\\A| = {unique_s2} (unique to Song B)\n\n'
         f'3. Parameters:\n'
         f'   α = {len1}/{len1 + len2} = {alpha:.4f}\n'
         f'   β = {len2}/{len1 + len2} = {beta:.4f}\n\n'
@@ -228,8 +228,8 @@ def analyze_case(df, case_number):
     return {
         'Case': case_number,
         'Ruling': case_data.loc[0, 'Ruling'],
-        'Song 1': case_data.loc[0, 'File Name'],
-        'Song 2': case_data.loc[1, 'File Name'],
+        'Song A': case_data.loc[0, 'File Name'],
+        'Song B': case_data.loc[1, 'File Name'],
         'Pitch Similarity': pitch_score,
         'Rhythm Similarity': rhythm_score
     }
@@ -283,8 +283,8 @@ def analyze_case_with_visualization(df, case_number):
     return {
         'Case': case_number,
         'Ruling': case_data.loc[0, 'Ruling'],
-        'Song 1': case_data.loc[0, 'File Name'],
-        'Song 2': case_data.loc[1, 'File Name'],
+        'Song A': case_data.loc[0, 'File Name'],
+        'Song B': case_data.loc[1, 'File Name'],
         'Pitch Similarity': pitch_score,
         'Rhythm Similarity': rhythm_score
     }
@@ -316,7 +316,7 @@ def save_similarity_report(results, output_path):
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
     # Reorder columns
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song 1', 'Song 2', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

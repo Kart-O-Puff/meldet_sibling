@@ -9,3 +9,7 @@ evaluation_report.csv
 
 # Preprocessed Files
 MCIC_Dataset/MCIC_Preprocessed/
+
+# Trashed Versions of MelDet Approach
+# meldet_approach_v1.py
+# meldet_approach_v3.py

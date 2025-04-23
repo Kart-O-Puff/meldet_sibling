@@ -1,0 +1,5 @@
+Approach,Total_Runtime_s,Average_Runtime_ms,Min_Runtime_ms,Max_Runtime_ms,Std_Dev_Runtime_ms,CPU_Brand,CPU_Arch,CPU_Cores_Physical,CPU_Cores_Logical,CPU_Frequency_MHz,CPU_Usage_Percent,RAM_Total_GB,RAM_Available_GB,RAM_Usage_Percent,OS,OS_Version,OS_Release,Machine
+MelDet,1.098,10.983,0.197,36.227,8.890,AMD Ryzen 7 4800H with Radeon Graphics,X86_64,8,16,2900,0.9,15.37,2.96,80.7,Windows,10.0.22631,11,AMD64
+Hungarian,1.044,10.445,0.196,36.396,8.781,AMD Ryzen 7 4800H with Radeon Graphics,X86_64,8,16,2900,0.9,15.37,2.96,80.7,Windows,10.0.22631,11,AMD64
+SumCommon,0.963,9.630,0.178,34.057,8.081,AMD Ryzen 7 4800H with Radeon Graphics,X86_64,8,16,2900,0.9,15.37,2.96,80.7,Windows,10.0.22631,11,AMD64
+Tversky,0.976,9.758,0.175,33.958,8.221,AMD Ryzen 7 4800H with Radeon Graphics,X86_64,8,16,2900,0.9,15.37,2.96,80.7,Windows,10.0.22631,11,AMD64
