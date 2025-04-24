@@ -295,8 +295,8 @@ def analyze_all_cases(df, show_plots=False):
         results.append({
             'Case': case,
             'Ruling': ruling,
-            'Song 1': song1_title,
-            'Song 2': song2_title,
+            'Song A': song1_title,
+            'Song B': song2_title,
             'Pitch Similarity': pitch_similarity,
             'Rhythm Similarity': rhythm_similarity
         })
@@ -324,7 +324,7 @@ def save_similarity_report(results, output_path):
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
     
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song 1', 'Song 2', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

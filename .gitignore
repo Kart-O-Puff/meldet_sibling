@@ -1,8 +1,13 @@
-# Similarity Reports
+# Similarity Score Reports
 similarity_report_hungarian.csv
 similarity_report_meldet.csv
 similarity_report_sumcommon.csv
 similarity_report_tversky.csv
+
+# Other Evaluation Reports
+friedman_test_results.csv
+runtime_analysis_results.csv
+runtime_analysis_summary.csv
 
 # Evaluation Report
 evaluation_report.csv
@@ -11,5 +16,5 @@ evaluation_report.csv
 MCIC_Dataset/MCIC_Preprocessed/
 
 # Trashed Versions of MelDet Approach
-# meldet_approach_v1.py
-# meldet_approach_v3.py
+meldet_approach_v1.py
+meldet_approach_v3.py

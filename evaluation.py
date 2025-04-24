@@ -3,12 +3,14 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve, f1_score, average_precision_score, precision_recall_curve
+from scipy import stats
+from scikit_posthocs import posthoc_nemenyi_friedman
 
 """
 Example of similarity report format for each approach:
 
 similarity_report_*.csv contains:
-Case,         Ruling,      Binary Ruling,    Song1,  Song2,   Pitch Similarity, Rhythm Similarity
+Case,         Ruling,      Binary Ruling,    Song A,  Song B,   Pitch Similarity, Rhythm Similarity
 Case_001,     Plagiarism,        1,          A.mid,  B.mid,         85.5,              76.2
 Case_002,     No Plagiarism,     0,          C.mid,  D.mid,         45.2,              38.9
 ...
@@ -16,6 +18,38 @@ Case_002,     No Plagiarism,     0,          C.mid,  D.mid,         45.2,       
 Where:
 - Binary Ruling: 1 for plagiarism, 0 for no plagiarism
 - Pitch/Rhythm Similarity: score between 0-100 (%)
+"""
+
+"""
+Evaluation Module for Comparing Similarity Approaches
+
+The Friedman Test is a non-parametric statistical test used to:
+1. Detect differences in treatments across multiple attempts/samples
+2. Compare three or more matched or paired groups
+3. Test the null hypothesis that matched samples were drawn from the same population
+
+Key Components of Friedman Test:
+- Null Hypothesis (H0): No significant difference between the approaches
+- Alternative Hypothesis (H1): At least one approach differs significantly
+- Significance Level: Typically α = 0.05
+
+Friedman Test Calculation:
+1. Rank the approaches within each case (1 = best/lowest MSE, 4 = worst/highest MSE)
+2. Calculate the test statistic:
+   Q = [12/(bk(k+1))] * [∑(Rj²)] - 3b(k+1)
+   where:
+   - b = number of blocks (cases)
+   - k = number of approaches
+   - Rj = sum of ranks for each approach
+   
+Interpretation:
+- If p-value < 0.05: Reject H0, significant differences exist
+- If p-value ≥ 0.05: Fail to reject H0, no significant differences
+
+Post-hoc Analysis (Nemenyi test):
+- Only performed if Friedman test is significant
+- Compares approaches pairwise to identify which ones differ
+- Critical value based on number of approaches and significance level
 """
 
 def load_similarity_reports():
@@ -32,23 +66,10 @@ def load_similarity_reports():
     return reports
 
 def calculate_mse(predictions, labels):
-    """
-    Calculate Mean Squared Error between similarity scores and binary labels.
-    
-    Example calculation:
-    Case 1: score=85.5 (0.855 after normalization), label=1 (plagiarism)
-           MSE = (0.855 - 1)² = 0.021
-           Good prediction: low error because high score matched plagiarism label
-    
-    Case 2: score=45.2 (0.452 after normalization), label=0 (no plagiarism)
-           MSE = (0.452 - 0)² = 0.204
-           Moderate error: score was higher than ideal for non-plagiarism
-    
-    Final MSE = average of all case errors
-    Lower MSE = better predictions
-    """
+    """Calculate Mean Squared Error and Standard Deviation between similarity scores and binary labels."""
     predictions = np.array(predictions) / 100  # Convert percentage to [0,1]
-    return np.mean((predictions - labels) ** 2)
+    squared_errors = (predictions - labels) ** 2
+    return np.mean(squared_errors), np.std(squared_errors)
 
 def calculate_auc(predictions, labels):
     """
@@ -135,12 +156,15 @@ def find_best_threshold(y_true, scores):
     return best_threshold, best_f1
 
 def evaluate_approach(similarity_df):
-    """Evaluate approach using all metrics including AUC-PR."""
+    """Evaluate approach using all metrics including MSE standard deviation."""
     binary_ruling = similarity_df['Binary Ruling'].values
     
-    # Calculate metrics
-    pitch_mse = calculate_mse(similarity_df['Pitch Similarity'], binary_ruling)
-    rhythm_mse = calculate_mse(similarity_df['Rhythm Similarity'], binary_ruling)
+    # Calculate metrics with standard deviation
+    pitch_mse, pitch_mse_std = calculate_mse(similarity_df['Pitch Similarity'], binary_ruling)
+    rhythm_mse, rhythm_mse_std = calculate_mse(similarity_df['Rhythm Similarity'], binary_ruling)
+    combined_mse = (pitch_mse + rhythm_mse) / 2
+    combined_mse_std = np.sqrt((pitch_mse_std**2 + rhythm_mse_std**2) / 2)
+    
     pitch_auc = calculate_auc(similarity_df['Pitch Similarity'], binary_ruling)
     rhythm_auc = calculate_auc(similarity_df['Rhythm Similarity'], binary_ruling)
     pitch_auc_pr = calculate_auc_pr(similarity_df['Pitch Similarity'], binary_ruling)
@@ -152,8 +176,11 @@ def evaluate_approach(similarity_df):
     
     return {
         'Pitch MSE': pitch_mse,
+        'Pitch MSE Std': pitch_mse_std,
         'Rhythm MSE': rhythm_mse,
-        'Average MSE': (pitch_mse + rhythm_mse) / 2,
+        'Rhythm MSE Std': rhythm_mse_std,
+        'Combined Features MSE': combined_mse,
+        'Combined Features MSE Std': combined_mse_std,
         'Pitch AUC': pitch_auc,
         'Rhythm AUC': rhythm_auc,
         'Average AUC': (pitch_auc + rhythm_auc) / 2,
@@ -166,20 +193,78 @@ def evaluate_approach(similarity_df):
         'Rhythm F1': rhythm_f1
     }
 
+def perform_friedman_test(results, feature='Pitch'):
+    """
+    Perform Friedman test on MSE scores across approaches.
+    Returns test statistic, p-value, and post-hoc results if significant.
+    """
+    approaches = list(results.keys())
+    mse_key = 'Pitch MSE' if feature == 'Pitch' else 'Rhythm MSE'
+    mse_std_key = 'Pitch MSE Std' if feature == 'Pitch' else 'Rhythm MSE Std'
+    
+    # Get MSE values and standard deviations
+    mse_values = [results[app][mse_key] for app in approaches]
+    mse_stds = [results[app][mse_std_key] for app in approaches]
+    
+    # Print MSE values for verification
+    print(f"\n{feature} MSE Values:")
+    for app, mse, std in zip(approaches, mse_values, mse_stds):
+        print(f"{app}: {mse:.4f} ± {std:.4f}")
+    
+    # Perform Friedman test
+    statistic, p_value = stats.friedmanchisquare(*[[mse] for mse in mse_values])
+    
+    print(f"\nFriedman Test Results for {feature} MSE:")
+    print("-" * 50)
+    print(f"Statistic: {statistic:.4f}")
+    print(f"p-value: {p_value:.4f}")
+    
+    if p_value < 0.05:
+        print("\nSignificant differences found between approaches!")
+        # Perform post-hoc Nemenyi test
+        mse_array = np.array(mse_values).reshape(1, -1)
+        posthoc = posthoc_nemenyi_friedman(mse_array)
+        print("\nPost-hoc Nemenyi Test p-values:")
+        print("-" * 50)
+        posthoc.columns = approaches
+        posthoc.index = approaches
+        print(posthoc.round(4))
+        return {
+            'statistic': statistic,
+            'p_value': p_value,
+            'posthoc': posthoc,
+            'mse_values': dict(zip(approaches, mse_values)),
+            'mse_stds': dict(zip(approaches, mse_stds))
+        }
+    else:
+        print("\nNo significant differences found between approaches.")
+        return {
+            'statistic': statistic,
+            'p_value': p_value,
+            'posthoc': None,
+            'mse_values': dict(zip(approaches, mse_values)),
+            'mse_stds': dict(zip(approaches, mse_stds))
+        }
+
 def plot_mse_comparison(results):
-    """Plot MSE comparison across approaches."""
+    """Plot MSE comparison across approaches with error bars showing standard deviation."""
     approaches = list(results.keys())
     pitch_mse = [results[app]['Pitch MSE'] for app in approaches]
     rhythm_mse = [results[app]['Rhythm MSE'] for app in approaches]
-    avg_mse = [results[app]['Average MSE'] for app in approaches]
+    combined_mse = [results[app]['Combined Features MSE'] for app in approaches]
+    
+    # Get standard deviations
+    pitch_std = [results[app]['Pitch MSE Std'] for app in approaches]
+    rhythm_std = [results[app]['Rhythm MSE Std'] for app in approaches]
+    combined_std = [results[app]['Combined Features MSE Std'] for app in approaches]
     
     x = np.arange(len(approaches))
     width = 0.25
     
     fig, ax = plt.subplots(figsize=(12, 6))
-    pitch_bars = ax.bar(x - width, pitch_mse, width, label='Pitch MSE', color='skyblue')
-    rhythm_bars = ax.bar(x, rhythm_mse, width, label='Rhythm MSE', color='lightgreen')
-    avg_bars = ax.bar(x + width, avg_mse, width, label='Average MSE', color='lightcoral')
+    pitch_bars = ax.bar(x - width, pitch_mse, width, yerr=pitch_std, label='Pitch MSE', color='skyblue', capsize=5)
+    rhythm_bars = ax.bar(x, rhythm_mse, width, yerr=rhythm_std, label='Rhythm MSE', color='lightgreen', capsize=5)
+    combined_bars = ax.bar(x + width, combined_mse, width, yerr=combined_std, label='Combined Features MSE', color='lightcoral', capsize=5)
     
     ax.set_ylabel('Mean Squared Error')
     ax.set_title('MSE Comparison Across Approaches')
@@ -199,7 +284,7 @@ def plot_mse_comparison(results):
     
     autolabel(pitch_bars)
     autolabel(rhythm_bars)
-    autolabel(avg_bars)
+    autolabel(combined_bars)
     
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -420,7 +505,7 @@ def print_evaluation_results(results, show_pr_analysis=False):
     """Print detailed evaluation results in a formatted table."""
     print("\nEvaluation Results:")
     print("-" * 140)
-    headers = ['Approach', 'Pitch MSE', 'Rhythm MSE', 'Avg MSE', 
+    headers = ['Approach', 'Pitch MSE', 'Pitch MSE Std', 'Rhythm MSE', 'Rhythm MSE Std', 'Combined Features MSE', 'Combined Features MSE Std', 
               'Pitch AUC', 'Rhythm AUC', 'Avg AUC',
               'Pitch AUC-PR', 'Rhythm AUC-PR', 'Avg AUC-PR',
               'Pitch Thresh', 'Pitch F1', 'Rhythm Thresh', 'Rhythm F1']
@@ -430,8 +515,11 @@ def print_evaluation_results(results, show_pr_analysis=False):
     for approach, scores in results.items():
         values = [
             f"{scores['Pitch MSE']:>10.4f}",
+            f"{scores['Pitch MSE Std']:>10.4f}",
             f"{scores['Rhythm MSE']:>10.4f}",
-            f"{scores['Average MSE']:>10.4f}",
+            f"{scores['Rhythm MSE Std']:>10.4f}",
+            f"{scores['Combined Features MSE']:>10.4f}",
+            f"{scores['Combined Features MSE Std']:>10.4f}",
             f"{scores['Pitch AUC']:>10.4f}",
             f"{scores['Rhythm AUC']:>10.4f}",
             f"{scores['Average AUC']:>10.4f}",
@@ -458,30 +546,103 @@ def print_evaluation_results(results, show_pr_analysis=False):
         
         pd.reset_option('display.float_format')
 
+def save_mse_metrics(results, output_path):
+    """Save MSE-related metrics to a separate CSV file."""
+    mse_data = []
+    for approach, scores in results.items():
+        row = {
+            'Approach': approach,
+            'Pitch_MSE': f"{scores['Pitch MSE']:.4f}",
+            'Pitch_MSE_Std': f"{scores['Pitch MSE Std']:.4f}",
+            'Pitch_MSE_Min': f"{min(scores['Pitch MSE'], scores['Pitch MSE'] - scores['Pitch MSE Std']):.4f}",
+            'Pitch_MSE_Max': f"{max(scores['Pitch MSE'], scores['Pitch MSE'] + scores['Pitch MSE Std']):.4f}",
+            'Rhythm_MSE': f"{scores['Rhythm MSE']:.4f}",
+            'Rhythm_MSE_Std': f"{scores['Rhythm MSE Std']:.4f}",
+            'Rhythm_MSE_Min': f"{min(scores['Rhythm MSE'], scores['Rhythm MSE'] - scores['Rhythm MSE Std']):.4f}",
+            'Rhythm_MSE_Max': f"{max(scores['Rhythm MSE'], scores['Rhythm MSE'] + scores['Rhythm MSE Std']):.4f}",
+            'Combined_Features_MSE': f"{scores['Combined Features MSE']:.4f}",
+            'Combined_Features_MSE_Std': f"{scores['Combined Features MSE Std']:.4f}",
+            'Combined_Features_MSE_Min': f"{min(scores['Combined Features MSE'], scores['Combined Features MSE'] - scores['Combined Features MSE Std']):.4f}",
+            'Combined_Features_MSE_Max': f"{max(scores['Combined Features MSE'], scores['Combined Features MSE'] + scores['Combined Features MSE Std']):.4f}"
+        }
+        mse_data.append(row)
+    
+    df = pd.DataFrame(mse_data)
+    df.to_csv(output_path, index=False)
+    print(f"\nMSE metrics saved to: {output_path}")
+
 def save_evaluation_report(results, output_path):
     """Save evaluation results to CSV with proper decimal formatting."""
+    # Save MSE metrics to separate file
+    mse_path = Path(__file__).parent / "mse_metrics.csv"
+    save_mse_metrics(results, mse_path)
+    
+    # Perform Friedman tests
+    pitch_friedman = perform_friedman_test(results, 'Pitch')
+    rhythm_friedman = perform_friedman_test(results, 'Rhythm')
+    
+    # Create main results data without MSE metrics
     data = []
     for approach, scores in results.items():
-        data.append({
+        row = {
             'Approach': approach,
-            'Pitch MSE': f"{scores['Pitch MSE']:.4f}",
-            'Rhythm MSE': f"{scores['Rhythm MSE']:.4f}",
-            'Average MSE': f"{scores['Average MSE']:.4f}",
-            'Pitch AUC': f"{scores['Pitch AUC']:.4f}",
-            'Rhythm AUC': f"{scores['Rhythm AUC']:.4f}",
-            'Average AUC': f"{scores['Average AUC']:.4f}",
-            'Pitch AUC-PR': f"{scores['Pitch AUC-PR']:.4f}",
-            'Rhythm AUC-PR': f"{scores['Rhythm AUC-PR']:.4f}",
-            'Average AUC-PR': f"{scores['Average AUC-PR']:.4f}",
-            'Pitch Threshold (%)': f"{scores['Pitch Threshold']*100:.2f}",
-            'Rhythm Threshold (%)': f"{scores['Rhythm Threshold']*100:.2f}",
-            'Pitch F1': f"{scores['Pitch F1']:.4f}",
-            'Rhythm F1': f"{scores['Rhythm F1']:.4f}"
-        })
+            'Pitch_AUC': f"{scores['Pitch AUC']:.4f}",
+            'Rhythm_AUC': f"{scores['Rhythm AUC']:.4f}",
+            'Average_AUC': f"{scores['Average AUC']:.4f}",
+            'Pitch_AUC_PR': f"{scores['Pitch AUC-PR']:.4f}",
+            'Rhythm_AUC_PR': f"{scores['Rhythm AUC-PR']:.4f}",
+            'Average_AUC_PR': f"{scores['Average AUC-PR']:.4f}",
+            'Pitch_Threshold': f"{scores['Pitch Threshold']*100:.2f}",
+            'Rhythm_Threshold': f"{scores['Rhythm Threshold']*100:.2f}",
+            'Pitch_F1': f"{scores['Pitch F1']:.4f}",
+            'Rhythm_F1': f"{scores['Rhythm F1']:.4f}"
+        }
+        data.append(row)
     
     df = pd.DataFrame(data)
+    
+    # Save main results
     df.to_csv(output_path, index=False)
+    
+    # Save Friedman results
+    friedman_path = Path(__file__).parent / "friedman_test_results.csv"
+    friedman_data = {
+        'Feature': ['Pitch', 'Rhythm'],
+        'Friedman_Statistic': [
+            f"{pitch_friedman['statistic']:.4f}",
+            f"{rhythm_friedman['statistic']:.4f}"
+        ],
+        'Friedman_PValue': [
+            f"{pitch_friedman['p_value']:.4f}",
+            f"{rhythm_friedman['p_value']:.4f}"
+        ],
+        'Significant': [
+            'Yes' if pitch_friedman['p_value'] < 0.05 else 'No',
+            'Yes' if rhythm_friedman['p_value'] < 0.05 else 'No'
+        ]
+    }
+    pd.DataFrame(friedman_data).to_csv(friedman_path, index=False)
     print(f"\nEvaluation results saved to: {output_path}")
+    print(f"Friedman test results saved to: {friedman_path}")
+    
+    # Save post-hoc results if available
+    if pitch_friedman['posthoc'] is not None or rhythm_friedman['posthoc'] is not None:
+        posthoc_path = Path(__file__).parent / "evaluation_posthoc_results.csv"
+        posthoc_data = []
+        
+        if pitch_friedman['posthoc'] is not None:
+            pitch_posthoc = pitch_friedman['posthoc'].reset_index()
+            pitch_posthoc['Feature'] = 'Pitch'
+            posthoc_data.append(pitch_posthoc)
+            
+        if rhythm_friedman['posthoc'] is not None:
+            rhythm_posthoc = rhythm_friedman['posthoc'].reset_index()
+            rhythm_posthoc['Feature'] = 'Rhythm'
+            posthoc_data.append(rhythm_posthoc)
+        
+        if posthoc_data:
+            pd.concat(posthoc_data).to_csv(posthoc_path, index=False)
+            print(f"Post-hoc analysis results saved to: {posthoc_path}")
 
 def show_menu():
     """Display interactive menu for evaluation options."""
@@ -493,9 +654,10 @@ def show_menu():
     print("4. Show AUC-PR Comparison")
     print("5. Show Thresholding Analysis")
     print("6. Show Optimal Thresholds for Each Approach via F1-Scoring")
-    print("7. Generate Full Report (All Metrics)")
-    print("8. Exit")
-    return input("\nSelect an option (1-8): ")
+    print("7. Perform Friedman Test Analysis")
+    print("8. Generate Full Report (All Metrics)")
+    print("9. Exit")
+    return input("\nSelect an option (1-9): ")
 
 def show_approach_menu(approaches):
     """Display menu for selecting an approach and feature."""
@@ -533,7 +695,7 @@ def interactive_evaluation():
             # Basic Statistics without PR Analysis
             print("\nBasic Evaluation Results:")
             print("-" * 110)
-            headers = ['Approach', 'Pitch MSE', 'Rhythm MSE', 'Avg MSE', 
+            headers = ['Approach', 'Pitch MSE', 'Pitch MSE Std', 'Rhythm MSE', 'Rhythm MSE Std', 'Combined Features MSE', 'Combined Features MSE Std', 
                       'Pitch AUC-ROC', 'Rhythm AUC-ROC', 'Avg AUC-ROC']
             print(f"{headers[0]:<15} " + " ".join(f"{h:>12}" for h in headers[1:]))
             print("-" * 110)
@@ -541,8 +703,11 @@ def interactive_evaluation():
             for approach, scores in results.items():
                 values = [
                     f"{scores['Pitch MSE']:>12.4f}",
+                    f"{scores['Pitch MSE Std']:>12.4f}",
                     f"{scores['Rhythm MSE']:>12.4f}",
-                    f"{scores['Average MSE']:>12.4f}",
+                    f"{scores['Rhythm MSE Std']:>12.4f}",
+                    f"{scores['Combined Features MSE']:>12.4f}",
+                    f"{scores['Combined Features MSE Std']:>12.4f}",
                     f"{scores['Pitch AUC']:>12.4f}",
                     f"{scores['Rhythm AUC']:>12.4f}",
                     f"{scores['Average AUC']:>12.4f}"
@@ -607,19 +772,28 @@ def interactive_evaluation():
         elif choice == '6':
             plot_f1_threshold_curves(similarity_reports)
         elif choice == '7':
+            # Perform Friedman tests
+            print("\nPerforming Friedman Tests...")
+            pitch_results = perform_friedman_test(results, 'Pitch')
+            rhythm_results = perform_friedman_test(results, 'Rhythm')
+            input("\nPress Enter to continue...")
+        elif choice == '8':
             print_evaluation_results(results, show_pr_analysis=True)
             plot_mse_comparison(results)
             plot_auc_comparison(results)
             plot_roc_curves(similarity_reports)
             plot_pr_curves(similarity_reports)
             plot_f1_threshold_curves(similarity_reports)
-        elif choice == '8':
+            print("\nFriedman Test Analysis:")
+            pitch_results = perform_friedman_test(results, 'Pitch')
+            rhythm_results = perform_friedman_test(results, 'Rhythm')
+        elif choice == '9':
             print("\nExiting evaluation. Goodbye!")
             break
         else:
             print("\nInvalid choice. Please try again.")
         
-        if choice != '8':
+        if choice != '9':
             input("\nPress Enter to continue...")
 
 def main():
