@@ -537,7 +537,7 @@ def save_similarity_report(results, output_path):
     1. Case identifiers
     2. Expert rulings (original and binary)
     3. Song pair information
-    4. Similarity scores (as percentages)
+    4. Similarity scores (as percentages with 2 decimal places)
     
     Format:
     - CSV file with sorted cases
@@ -545,9 +545,9 @@ def save_similarity_report(results, output_path):
     """
     df = pd.DataFrame(results)
     
-    # Convert similarity scores to percentages
-    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
-    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    # Convert similarity scores to percentages and round to 2 decimal places
+    df['Pitch Similarity'] = (df['Pitch Similarity'] * 100).round(2)
+    df['Rhythm Similarity'] = (df['Rhythm Similarity'] * 100).round(2)
     
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)

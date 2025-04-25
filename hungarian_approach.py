@@ -316,8 +316,8 @@ def analyze_all_cases(df, show_plots=False):
 def save_similarity_report(results, output_path):
     """Generate comprehensive analysis report."""
     df = pd.DataFrame(results)
-    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
-    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    df['Pitch Similarity'] = (df['Pitch Similarity'] * 100).round(2)
+    df['Rhythm Similarity'] = (df['Rhythm Similarity'] * 100).round(2)
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
     
     df['Case_Num'] = df['Case'].str.extract(r'(\d+)').astype(int)

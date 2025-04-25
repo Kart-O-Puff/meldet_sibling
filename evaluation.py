@@ -7,20 +7,6 @@ from scipy import stats
 from scikit_posthocs import posthoc_nemenyi_friedman
 
 """
-Example of similarity report format for each approach:
-
-similarity_report_*.csv contains:
-Case,         Ruling,      Binary Ruling,    Song A,  Song B,   Pitch Similarity, Rhythm Similarity
-Case_001,     Plagiarism,        1,          A.mid,  B.mid,         85.5,              76.2
-Case_002,     No Plagiarism,     0,          C.mid,  D.mid,         45.2,              38.9
-...
-
-Where:
-- Binary Ruling: 1 for plagiarism, 0 for no plagiarism
-- Pitch/Rhythm Similarity: score between 0-100 (%)
-"""
-
-"""
 Evaluation Module for Comparing Similarity Approaches
 
 The Friedman Test is a non-parametric statistical test used to:
@@ -72,73 +58,15 @@ def calculate_mse(predictions, labels):
     return np.mean(squared_errors), np.std(squared_errors)
 
 def calculate_auc(predictions, labels):
-    """
-    Calculate Area Under ROC Curve for similarity scores.
-    
-    Example using similarity scores:
-    Cases sorted by Pitch Similarity (normalized to 0-1):
-    Score  Label  Correct Ranking?
-    0.855  1      Yes (plagiarized case has high score)
-    0.752  1      Yes
-    0.452  0      Yes (non-plagiarized has lower score)
-    0.389  0      Yes
-    
-    Perfect AUC=1.0: All plagiarized cases ranked above non-plagiarized
-    Random AUC=0.5: Rankings are random
-    AUC=0.0: All rankings reversed
-    """
     predictions = np.array(predictions) / 100  # Convert percentage to [0,1]
     return roc_auc_score(labels, predictions)
 
 def calculate_auc_pr(predictions, labels):
-    """
-    Calculate Area Under Precision-Recall Curve (AUC-PR), also known as Average Precision (AP).
     
-    The Average Precision (AP) is calculated by sklearn.metrics.average_precision_score as:
-    AP = Σ (R_n - R_n-1) * P_n
-    
-    Where:
-    - P_n = precision at threshold n
-    - R_n = recall at threshold n
-    - The thresholds are automatically determined by unique prediction scores
-    
-    Input values:
-    - predictions: similarity scores (0-100) from either Pitch or Rhythm comparison
-                  these are normalized to 0-1 range by dividing by 100
-    - labels: Binary Ruling column from similarity report (1=plagiarism, 0=no plagiarism)
-    
-    Example calculation with similarity scores [85, 75, 45, 35] and labels [1, 1, 0, 0]:
-    1. Normalize scores: [0.85, 0.75, 0.45, 0.35]
-    2. Sort by decreasing score and track corresponding labels:
-       Score: 0.85  Label: 1  Precision: 1/1=1.00  Recall: 1/2=0.50  ΔRecall: 0.50
-       Score: 0.75  Label: 1  Precision: 2/2=1.00  Recall: 2/2=1.00  ΔRecall: 0.50
-       Score: 0.45  Label: 0  Precision: 2/3=0.67  Recall: 2/2=1.00  ΔRecall: 0.00
-       Score: 0.35  Label: 0  Precision: 2/4=0.50  Recall: 2/2=1.00  ΔRecall: 0.00
-    
-    3. AP = (1.00 * 0.50) + (1.00 * 0.50) = 1.00
-       Perfect AP because all plagiarized cases had higher scores than non-plagiarized
-    """
     predictions = np.array(predictions) / 100  # Convert percentage to [0,1]
     return average_precision_score(labels, predictions)
 
 def find_best_threshold(y_true, scores):
-    """
-    Find optimal threshold for converting similarity scores to binary predictions.
-    
-    Example threshold analysis:
-    Scores (normalized): [0.855, 0.752, 0.452, 0.389]
-    Labels:             [1,     1,     0,     0    ]
-    
-    Try threshold=0.50:
-    Predictions:        [1,     1,     0,     0    ]
-    Result: All correct! F1=1.0
-    
-    Try threshold=0.80:
-    Predictions:        [1,     0,     0,     0    ]
-    Result: Missed one plagiarism case, F1≈0.67
-    
-    Returns threshold that gives highest F1-score
-    """
     scores = np.array(scores) / 100  # Convert to [0,1] range
     thresholds = np.arange(0.01, 1.00, 0.01)
     best_f1 = 0
@@ -156,12 +84,20 @@ def find_best_threshold(y_true, scores):
     return best_threshold, best_f1
 
 def evaluate_approach(similarity_df):
-    """Evaluate approach using all metrics including MSE standard deviation."""
+    """Evaluate approach using all metrics including squared errors."""
     binary_ruling = similarity_df['Binary Ruling'].values
     
-    # Calculate metrics with standard deviation
-    pitch_mse, pitch_mse_std = calculate_mse(similarity_df['Pitch Similarity'], binary_ruling)
-    rhythm_mse, rhythm_mse_std = calculate_mse(similarity_df['Rhythm Similarity'], binary_ruling)
+    # Calculate squared errors for pitch and rhythm
+    pitch_scores = similarity_df['Pitch Similarity'].values / 100
+    rhythm_scores = similarity_df['Rhythm Similarity'].values / 100
+    pitch_se = (pitch_scores - binary_ruling) ** 2
+    rhythm_se = (rhythm_scores - binary_ruling) ** 2
+    
+    # Calculate MSE and other metrics
+    pitch_mse = np.mean(pitch_se)
+    rhythm_mse = np.mean(rhythm_se)
+    pitch_mse_std = np.std(pitch_se)
+    rhythm_mse_std = np.std(rhythm_se)
     combined_mse = (pitch_mse + rhythm_mse) / 2
     combined_mse_std = np.sqrt((pitch_mse_std**2 + rhythm_mse_std**2) / 2)
     
@@ -170,7 +106,6 @@ def evaluate_approach(similarity_df):
     pitch_auc_pr = calculate_auc_pr(similarity_df['Pitch Similarity'], binary_ruling)
     rhythm_auc_pr = calculate_auc_pr(similarity_df['Rhythm Similarity'], binary_ruling)
     
-    # Find optimal thresholds
     pitch_threshold, pitch_f1 = find_best_threshold(binary_ruling, similarity_df['Pitch Similarity'])
     rhythm_threshold, rhythm_f1 = find_best_threshold(binary_ruling, similarity_df['Rhythm Similarity'])
     
@@ -190,31 +125,34 @@ def evaluate_approach(similarity_df):
         'Pitch Threshold': pitch_threshold,
         'Pitch F1': pitch_f1,
         'Rhythm Threshold': rhythm_threshold,
-        'Rhythm F1': rhythm_f1
+        'Rhythm F1': rhythm_f1,
+        'Pitch_SE': pitch_se,
+        'Rhythm_SE': rhythm_se
     }
 
 def perform_friedman_test(results, feature='Pitch'):
     """
-    Perform Friedman test on MSE scores across approaches.
+    Perform Friedman test on squared error values across approaches.
     Returns test statistic, p-value, and post-hoc results if significant.
     """
     approaches = list(results.keys())
-    mse_key = 'Pitch MSE' if feature == 'Pitch' else 'Rhythm MSE'
-    mse_std_key = 'Pitch MSE Std' if feature == 'Pitch' else 'Rhythm MSE Std'
+    se_key = 'Pitch_SE' if feature == 'Pitch' else 'Rhythm_SE'
     
-    # Get MSE values and standard deviations
-    mse_values = [results[app][mse_key] for app in approaches]
-    mse_stds = [results[app][mse_std_key] for app in approaches]
+    # Get squared error values for each approach
+    se_values = [results[app][se_key] for app in approaches]
     
-    # Print MSE values for verification
-    print(f"\n{feature} MSE Values:")
-    for app, mse, std in zip(approaches, mse_values, mse_stds):
-        print(f"{app}: {mse:.4f} ± {std:.4f}")
+    # Print squared error statistics for verification
+    print(f"\n{feature} Squared Error Statistics:")
+    for app, se in zip(approaches, se_values):
+        print(f"{app}: Mean = {np.mean(se):.4f}, Std = {np.std(se):.4f}")
+    
+    # Reshape data for Friedman test
+    se_array = np.array(se_values).T  # Transpose to get cases as rows, approaches as columns
     
     # Perform Friedman test
-    statistic, p_value = stats.friedmanchisquare(*[[mse] for mse in mse_values])
+    statistic, p_value = stats.friedmanchisquare(*se_values)
     
-    print(f"\nFriedman Test Results for {feature} MSE:")
+    print(f"\nFriedman Test Results for {feature} Squared Errors:")
     print("-" * 50)
     print(f"Statistic: {statistic:.4f}")
     print(f"p-value: {p_value:.4f}")
@@ -222,8 +160,7 @@ def perform_friedman_test(results, feature='Pitch'):
     if p_value < 0.05:
         print("\nSignificant differences found between approaches!")
         # Perform post-hoc Nemenyi test
-        mse_array = np.array(mse_values).reshape(1, -1)
-        posthoc = posthoc_nemenyi_friedman(mse_array)
+        posthoc = posthoc_nemenyi_friedman(se_array)
         print("\nPost-hoc Nemenyi Test p-values:")
         print("-" * 50)
         posthoc.columns = approaches
@@ -233,8 +170,9 @@ def perform_friedman_test(results, feature='Pitch'):
             'statistic': statistic,
             'p_value': p_value,
             'posthoc': posthoc,
-            'mse_values': dict(zip(approaches, mse_values)),
-            'mse_stds': dict(zip(approaches, mse_stds))
+            'se_values': dict(zip(approaches, [list(se) for se in se_values])),
+            'se_means': dict(zip(approaches, [np.mean(se) for se in se_values])),
+            'se_stds': dict(zip(approaches, [np.std(se) for se in se_values]))
         }
     else:
         print("\nNo significant differences found between approaches.")
@@ -242,32 +180,28 @@ def perform_friedman_test(results, feature='Pitch'):
             'statistic': statistic,
             'p_value': p_value,
             'posthoc': None,
-            'mse_values': dict(zip(approaches, mse_values)),
-            'mse_stds': dict(zip(approaches, mse_stds))
+            'se_values': dict(zip(approaches, [list(se) for se in se_values])),
+            'se_means': dict(zip(approaches, [np.mean(se) for se in se_values])),
+            'se_stds': dict(zip(approaches, [np.std(se) for se in se_values]))
         }
 
 def plot_mse_comparison(results):
-    """Plot MSE comparison across approaches with error bars showing standard deviation."""
+    """Plot MSE comparison across approaches."""
     approaches = list(results.keys())
     pitch_mse = [results[app]['Pitch MSE'] for app in approaches]
     rhythm_mse = [results[app]['Rhythm MSE'] for app in approaches]
     combined_mse = [results[app]['Combined Features MSE'] for app in approaches]
     
-    # Get standard deviations
-    pitch_std = [results[app]['Pitch MSE Std'] for app in approaches]
-    rhythm_std = [results[app]['Rhythm MSE Std'] for app in approaches]
-    combined_std = [results[app]['Combined Features MSE Std'] for app in approaches]
-    
     x = np.arange(len(approaches))
     width = 0.25
     
     fig, ax = plt.subplots(figsize=(12, 6))
-    pitch_bars = ax.bar(x - width, pitch_mse, width, yerr=pitch_std, label='Pitch MSE', color='skyblue', capsize=5)
-    rhythm_bars = ax.bar(x, rhythm_mse, width, yerr=rhythm_std, label='Rhythm MSE', color='lightgreen', capsize=5)
-    combined_bars = ax.bar(x + width, combined_mse, width, yerr=combined_std, label='Combined Features MSE', color='lightcoral', capsize=5)
+    pitch_bars = ax.bar(x - width, pitch_mse, width, label='Pitch MSE', color='skyblue')
+    rhythm_bars = ax.bar(x, rhythm_mse, width, label='Rhythm MSE', color='lightgreen')
+    combined_bars = ax.bar(x + width, combined_mse, width, label='Combined Features MSE', color='lightcoral')
     
     ax.set_ylabel('Mean Squared Error')
-    ax.set_title('MSE Comparison Across Approaches')
+    ax.set_title('MSE Comparison')
     ax.set_xticks(x)
     ax.set_xticklabels(approaches)
     ax.legend()
@@ -451,10 +385,6 @@ def plot_f1_threshold_curves(similarity_reports):
     plt.show()
 
 def display_pr_analysis_table(similarity_df, feature='Pitch Similarity'):
-    """
-    Display how different similarity thresholds affect plagiarism detection decisions.
-    Shows what happens when we decide "similarity scores above X% mean plagiarism"
-    """
     scores = similarity_df[feature].values / 100
     y_true = similarity_df['Binary Ruling'].values
     thresholds = np.arange(0.0, 1.1, 0.1)
@@ -546,36 +476,26 @@ def print_evaluation_results(results, show_pr_analysis=False):
         
         pd.reset_option('display.float_format')
 
-def save_mse_metrics(results, output_path):
-    """Save MSE-related metrics to a separate CSV file."""
-    mse_data = []
+def save_squared_error_metrics(results, output_path):
+    """Save squared error standard deviation metrics to a CSV file."""
+    squared_error_data = []
     for approach, scores in results.items():
         row = {
             'Approach': approach,
-            'Pitch_MSE': f"{scores['Pitch MSE']:.4f}",
-            'Pitch_MSE_Std': f"{scores['Pitch MSE Std']:.4f}",
-            'Pitch_MSE_Min': f"{min(scores['Pitch MSE'], scores['Pitch MSE'] - scores['Pitch MSE Std']):.4f}",
-            'Pitch_MSE_Max': f"{max(scores['Pitch MSE'], scores['Pitch MSE'] + scores['Pitch MSE Std']):.4f}",
-            'Rhythm_MSE': f"{scores['Rhythm MSE']:.4f}",
-            'Rhythm_MSE_Std': f"{scores['Rhythm MSE Std']:.4f}",
-            'Rhythm_MSE_Min': f"{min(scores['Rhythm MSE'], scores['Rhythm MSE'] - scores['Rhythm MSE Std']):.4f}",
-            'Rhythm_MSE_Max': f"{max(scores['Rhythm MSE'], scores['Rhythm MSE'] + scores['Rhythm MSE Std']):.4f}",
-            'Combined_Features_MSE': f"{scores['Combined Features MSE']:.4f}",
-            'Combined_Features_MSE_Std': f"{scores['Combined Features MSE Std']:.4f}",
-            'Combined_Features_MSE_Min': f"{min(scores['Combined Features MSE'], scores['Combined Features MSE'] - scores['Combined Features MSE Std']):.4f}",
-            'Combined_Features_MSE_Max': f"{max(scores['Combined Features MSE'], scores['Combined Features MSE'] + scores['Combined Features MSE Std']):.4f}"
+            'Pitch_SE_Std': f"{np.std(scores['Pitch_SE']) if 'Pitch_SE' in scores else 0:.4f}",
+            'Rhythm_SE_Std': f"{np.std(scores['Rhythm_SE']) if 'Rhythm_SE' in scores else 0:.4f}"
         }
-        mse_data.append(row)
+        squared_error_data.append(row)
     
-    df = pd.DataFrame(mse_data)
+    df = pd.DataFrame(squared_error_data)
     df.to_csv(output_path, index=False)
-    print(f"\nMSE metrics saved to: {output_path}")
+    print(f"\nSquared error standard deviations saved to: {output_path}")
 
 def save_evaluation_report(results, output_path):
     """Save evaluation results to CSV with proper decimal formatting."""
-    # Save MSE metrics to separate file
-    mse_path = Path(__file__).parent / "mse_metrics.csv"
-    save_mse_metrics(results, mse_path)
+    # Save squared error metrics to separate file
+    se_path = Path(__file__).parent / "squared_error_metrics.csv"
+    save_squared_error_metrics(results, se_path)
     
     # Perform Friedman tests
     pitch_friedman = perform_friedman_test(results, 'Pitch')
@@ -586,6 +506,9 @@ def save_evaluation_report(results, output_path):
     for approach, scores in results.items():
         row = {
             'Approach': approach,
+            'Pitch_MSE': f"{scores['Pitch MSE']:.4f}",
+            'Rhythm_MSE': f"{scores['Rhythm MSE']:.4f}",
+            'Average_MSE': f"{scores['Combined Features MSE']:.4f}",
             'Pitch_AUC': f"{scores['Pitch AUC']:.4f}",
             'Rhythm_AUC': f"{scores['Rhythm AUC']:.4f}",
             'Average_AUC': f"{scores['Average AUC']:.4f}",
@@ -644,34 +567,36 @@ def save_evaluation_report(results, output_path):
             pd.concat(posthoc_data).to_csv(posthoc_path, index=False)
             print(f"Post-hoc analysis results saved to: {posthoc_path}")
 
-def show_menu():
-    """Display interactive menu for evaluation options."""
-    print("\nEvalution Menu for Similarity Reports of the Approaches")
-    print("=" * 40)
-    print("1. Show Basic Statistics")
-    print("2. Show MSE Comparison")
-    print("3. Show AUC-ROC Comparison")
-    print("4. Show AUC-PR Comparison")
-    print("5. Show Thresholding Analysis")
-    print("6. Show Optimal Thresholds for Each Approach via F1-Scoring")
-    print("7. Perform Friedman Test Analysis")
-    print("8. Generate Full Report (All Metrics)")
-    print("9. Exit")
-    return input("\nSelect an option (1-9): ")
-
-def show_approach_menu(approaches):
-    """Display menu for selecting an approach and feature."""
-    print("\nSelect an analysis option:")
-    print("=" * 30)
-    for i, approach in enumerate(approaches, 1):
-        print(f"{i}. {approach} - Pitch Analysis")
-        print(f"{i+len(approaches)}. {approach} - Rhythm Analysis")
-    next_num = 2 * len(approaches) + 1
-    print(f"{next_num}. All Approaches - Pitch Analysis")
-    print(f"{next_num+1}. All Approaches - Rhythm Analysis")
-    print(f"{next_num+2}. All Approaches - Both Analyses")
-    print("0. Back to main menu")
-    return input(f"\nSelect an option (0-{next_num+2}): ")
+def save_individual_squared_errors(similarity_reports, output_path):
+    """Save individual squared errors for each case across all approaches to CSV."""
+    individual_errors = []
+    
+    for approach_name, df in similarity_reports.items():
+        binary_ruling = df['Binary Ruling'].values
+        pitch_scores = df['Pitch Similarity'].values / 100  # Convert percentage to [0,1]
+        rhythm_scores = df['Rhythm Similarity'].values / 100
+        cases = df['Case'].values if 'Case' in df.columns else [f"Case_{str(i).zfill(3)}" for i in df.index]
+        
+        # Calculate squared errors for each case and round to 4 decimal places
+        pitch_squared_errors = np.round((pitch_scores - binary_ruling) ** 2, decimals=4)
+        rhythm_squared_errors = np.round((rhythm_scores - binary_ruling) ** 2, decimals=4)
+        
+        # Add each case to the list with proper Case_000 format
+        for idx in range(len(binary_ruling)):
+            individual_errors.append({
+                'Approach': approach_name,
+                'Case': cases[idx],
+                'Ground_Truth': binary_ruling[idx],
+                'Pitch_Score': pitch_scores[idx],
+                'Rhythm_Score': rhythm_scores[idx],
+                'Pitch_Squared_Error': pitch_squared_errors[idx],
+                'Rhythm_Squared_Error': rhythm_squared_errors[idx]
+            })
+    
+    # Convert to DataFrame and save to CSV
+    error_df = pd.DataFrame(individual_errors)
+    error_df.to_csv(output_path, index=False)
+    print(f"\nIndividual squared errors saved to: {output_path}")
 
 def interactive_evaluation():
     """Run evaluation with interactive menu."""
@@ -686,6 +611,10 @@ def interactive_evaluation():
     # Save all results
     report_path = Path(__file__).parent / "evaluation_report.csv"
     save_evaluation_report(results, report_path)
+    
+    # Save individual squared errors
+    errors_path = Path(__file__).parent / "individual_squared_errors.csv"
+    save_individual_squared_errors(similarity_reports, errors_path)
     print(f"Results saved to: {report_path}")
     
     while True:
@@ -795,6 +724,35 @@ def interactive_evaluation():
         
         if choice != '9':
             input("\nPress Enter to continue...")
+
+def show_menu():
+    """Display interactive menu for evaluation options."""
+    print("\nEvalution Menu for Similarity Reports of the Approaches")
+    print("=" * 40)
+    print("1. Show Basic Statistics")
+    print("2. Show MSE Comparison")
+    print("3. Show AUC-ROC Comparison")
+    print("4. Show AUC-PR Comparison")
+    print("5. Show Thresholding Analysis")
+    print("6. Show Optimal Thresholds for Each Approach via F1-Scoring")
+    print("7. Perform Friedman Test Analysis")
+    print("8. Generate Full Report (All Metrics)")
+    print("9. Exit")
+    return input("\nSelect an option (1-9): ")
+
+def show_approach_menu(approaches):
+    """Display menu for selecting an approach and feature."""
+    print("\nSelect an analysis option:")
+    print("=" * 30)
+    for i, approach in enumerate(approaches, 1):
+        print(f"{i}. {approach} - Pitch Analysis")
+        print(f"{i+len(approaches)}. {approach} - Rhythm Analysis")
+    next_num = 2 * len(approaches) + 1
+    print(f"{next_num}. All Approaches - Pitch Analysis")
+    print(f"{next_num+1}. All Approaches - Rhythm Analysis")
+    print(f"{next_num+2}. All Approaches - Both Analyses")
+    print("0. Back to main menu")
+    return input(f"\nSelect an option (0-{next_num+2}): ")
 
 def main():
     """Main execution with interactive menu."""
