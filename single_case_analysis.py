@@ -148,8 +148,8 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     ax_table.axis('tight')
     ax_table.axis('off')
     
-    col_labels = [f'S2_{i}:{val}' for i, val in enumerate(seq2)]
-    row_labels = [f'S1_{i}:{val}' for i, val in enumerate(seq1)]
+    col_labels = [f'SB_{i}:{val}' for i, val in enumerate(seq2)]
+    row_labels = [f'SA_{i}:{val}' for i, val in enumerate(seq1)]
     
     if is_similarity:
         cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
@@ -226,8 +226,8 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     plt.xlabel(f"Song B: {song2}")
     plt.ylabel(f"Song A: {song1}")
     
-    plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
-    plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
+    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))])
+    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))])
     
     if forced_diagonal is not None:
         m, n = matrix.shape
