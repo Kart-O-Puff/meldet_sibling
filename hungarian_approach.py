@@ -117,7 +117,7 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     
     col_labels = [f'S2_{i}:{val}' for i, val in enumerate(seq2)]
     row_labels = [f'S1_{i}:{val}' for i, val in enumerate(seq1)]
-    cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
+    cell_text = [[f'{int(val)}' if not is_similarity else f'{val:.4f}' for val in row] for row in matrix]
     
     table = ax_table.table(cellText=cell_text,
                           rowLabels=row_labels,
@@ -130,8 +130,10 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
         cmap = plt.cm.viridis
     else:
-        norm = plt.Normalize(vmin=0, vmax=7)
-        colorbar_label = 'Edit Distance\n(0: Most Similar, 7: Most Different)'
+        # Use the length of a single n-gram sequence as max value
+        ngram_length = len(seq1[0]) if seq1 else len(seq2[0])
+        norm = plt.Normalize(vmin=0, vmax=ngram_length)
+        colorbar_label = f'Edit Distance\n(0: Most Similar, {ngram_length}: Most Different)'
         cmap = plt.cm.viridis_r
     
     # Find optimal assignment using Hungarian Algorithm
@@ -167,18 +169,13 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     plt.tight_layout()
     plt.show()
 
-def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2=""):
-    """Plot similarity/distance matrix as a heatmap without detailed values."""
+def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score=None, song1="", song2=""):
+    """Plot similarity matrix as a heatmap."""
     plt.figure(figsize=(10, 8))
     
-    if is_similarity:
-        vmin, vmax = 0, 1
-        cmap = 'viridis'
-        cbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
-    else:
-        vmin, vmax = 0, 7
-        cmap = 'viridis_r'
-        cbar_label = 'Edit Distance\n(0: Most Similar, 7: Most Different)'
+    vmin, vmax = 0, 1
+    cmap = 'viridis'
+    cbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
@@ -186,8 +183,7 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
     plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
     
-    # Find and plot optimal assignment using Hungarian Algorithm
-    row_ind, col_ind = linear_sum_assignment(-matrix if is_similarity else matrix)
+    row_ind, col_ind = linear_sum_assignment(-matrix)
     plt.plot(col_ind, row_ind, 'rx-', markersize=8, linewidth=2, label='Optimal assignment')
     
     plt.legend()
@@ -233,7 +229,7 @@ def analyze_case(df, case_number, show_visualizations=False):
     if show_visualizations:
         print("\nVisualization Options:")
         print("1. Show detailed value tables")
-        print("2. Show heatmaps only")
+        print("2. Show similarity heatmaps")
         print("3. Show both")
         viz_type = input("Enter visualization type (1-3): ")
         
@@ -254,9 +250,6 @@ def analyze_case(df, case_number, show_visualizations=False):
                                    song1=song1_title, song2=song2_title)
             
             if viz_type in ['2', '3']:
-                plot_heatmap(distances, seq1, seq2,
-                           f"Edit Distance Heatmap ({feature})",
-                           song1=song1_title, song2=song2_title)
                 plot_heatmap(similarities, seq1, seq2,
                            f"Similarity Heatmap ({feature})",
                            is_similarity=True,

@@ -118,7 +118,7 @@ def calculate_similarity_score(matrix, forced_shift=None):
 def create_cost_matrix(seq1: List[List], seq2: List[List]) -> Tuple[np.ndarray, int]:
     """Create cost matrix and calculate edit distances between sequences."""
     m, n = len(seq1), len(seq2)
-    cost_matrix = np.zeros((m, n))
+    cost_matrix = np.zeros((m, n), dtype=np.int32)  # Changed to integer type
     
     # Get n-gram length
     ngram_length = len(seq1[0]) if seq1 else 0
@@ -127,7 +127,7 @@ def create_cost_matrix(seq1: List[List], seq2: List[List]) -> Tuple[np.ndarray, 
         for j in range(n):
             # Count differences between sequences
             differences = sum(1 for x, y in zip(seq1[i], seq2[j]) if x != y)
-            cost_matrix[i][j] = differences
+            cost_matrix[i][j] = int(differences)  # Ensure integer values
             
     return cost_matrix, ngram_length
 
@@ -142,17 +142,19 @@ def interpret_similarity(similarity_score: float) -> str:
     else:
         return "Low Similarity"
 
-def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None):
-    """
-    Visualize similarity/distance matrix with detailed values and forced diagonal position.
-    """
+def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
+    """Visualize similarity/distance matrix with detailed values."""
     fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(14, 8))
     ax_table.axis('tight')
     ax_table.axis('off')
     
     col_labels = [f'S2_{i}:{val}' for i, val in enumerate(seq2)]
     row_labels = [f'S1_{i}:{val}' for i, val in enumerate(seq1)]
-    cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
+    
+    if is_similarity:
+        cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
+    else:
+        cell_text = [[f'{int(val)}' for val in row] for row in matrix]
     
     table = ax_table.table(cellText=cell_text,
                           rowLabels=row_labels,
@@ -165,16 +167,12 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
         cmap = plt.cm.viridis
     else:
-        norm = plt.Normalize(vmin=0, vmax=7)
-        colorbar_label = 'Edit Distance\n(0: Most Similar, 7: Most Different)'
+        max_edit_distance = ngram_length if ngram_length else 7
+        norm = plt.Normalize(vmin=0, vmax=max_edit_distance)
+        colorbar_label = f'Edit Distance\n(0: Most Similar, {max_edit_distance}: Most Different)'
         cmap = plt.cm.viridis_r
-
-    m, n = matrix.shape
-    min_len = min(m, n)
     
-    # Use the forced diagonal position if provided
-    best_shift = forced_diagonal if forced_diagonal is not None else 0
-    
+    # Color cells based on values
     for i in range(len(seq1)):
         for j in range(len(seq2)):
             cell = table[i+1, j]
@@ -182,13 +180,15 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
             color = cmap(norm(value))
             cell.set_facecolor(color)
             
-            # Highlight cells using the forced diagonal
-            if m <= n and i < min_len and j == i + best_shift:
-                cell.set_edgecolor('red')
-                cell.set_linewidth(2)
-            elif m > n and j < min_len and i == j + best_shift:
-                cell.set_edgecolor('red')
-                cell.set_linewidth(2)
+            if forced_diagonal is not None:
+                m, n = matrix.shape
+                min_len = min(m, n)
+                if m <= n and i < min_len and j == i + forced_diagonal:
+                    cell.set_edgecolor('red')
+                    cell.set_linewidth(2)
+                elif m > n and j < min_len and i == j + forced_diagonal:
+                    cell.set_edgecolor('red')
+                    cell.set_linewidth(2)
     
     cmap_obj = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
     fig.colorbar(cmap_obj, cax=ax_colorbar, label=colorbar_label)
@@ -207,8 +207,8 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     plt.tight_layout()
     plt.show()
 
-def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None):
-    """Plot similarity/distance matrix as a heatmap with forced diagonal."""
+def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
+    """Plot similarity/distance matrix as a heatmap."""
     plt.figure(figsize=(10, 8))
     
     if is_similarity:
@@ -216,9 +216,10 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
         cmap = 'viridis'
         cbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
     else:
-        vmin, vmax = 0, 7
+        max_edit_distance = ngram_length if ngram_length else 7
+        vmin, vmax = 0, max_edit_distance
         cmap = 'viridis_r'
-        cbar_label = 'Edit Distance\n(0: Most Similar, 7: Most Different)'
+        cbar_label = f'Edit Distance\n(0: Most Similar, {max_edit_distance}: Most Different)'
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
@@ -228,22 +229,18 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
     plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
     
-    # Use the forced diagonal position
-    m, n = matrix.shape
-    min_len = min(m, n)
-    best_shift = forced_diagonal if forced_diagonal is not None else 0
-    
-    # Plot the diagonal using the forced position
-    if m <= n:
-        plt.plot(range(best_shift, best_shift + min_len),
-                range(min_len),
-                'rx-', markersize=8, linewidth=2, label='Best diagonal')
-    else:
-        plt.plot(range(min_len),
-                range(best_shift, best_shift + min_len),
-                'rx-', markersize=8, linewidth=2, label='Best diagonal')
-    
-    plt.legend()
+    if forced_diagonal is not None:
+        m, n = matrix.shape
+        min_len = min(m, n)
+        if m <= n:
+            plt.plot(range(forced_diagonal, forced_diagonal + min_len),
+                    range(min_len),
+                    'rx-', markersize=8, linewidth=2, label='Best diagonal')
+        else:
+            plt.plot(range(min_len),
+                    range(forced_diagonal, forced_diagonal + min_len),
+                    'rx-', markersize=8, linewidth=2, label='Best diagonal')
+        plt.legend()
     
     full_title = f"{title}\n"
     if song1 and song2:
@@ -256,6 +253,7 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     plt.show()
 
 def main():
+    """Main function for single case analysis."""
     # Get single case analysis folder path
     base_path = Path(__file__).parent / "Single_Case_Analysis"
     
@@ -365,35 +363,34 @@ def main():
     # Display results menu
     while True:
         print("\nVisualization Options:")
-        print("1. Show Similarity Scores Only")
-        print("2. Show Edit Distance Matrix Values")
-        print("3. Show Similarity Matrix Values")
-        print("4. Show Edit Distance Heatmap")
-        print("5. Show Similarity Heatmap")
-        print("6. Show All Visualizations")
-        print("7. Exit")
+        print("1. Matrix Tables")
+        print("   a) Edit Distance Matrix Values")
+        print("   b) Similarity Matrix Values")
+        print("   c) Both Matrix Tables")
+        print("2. Similarity Heatmaps")
+        print("3. Show All")
+        print("4. Exit")
         
-        choice = input("\nSelect visualization option (1-7): ")
+        choice = input("\nSelect visualization option (1a, 1b, 1c, 2, 3, 4): ")
         
-        if choice == '1':
-            print(f"\nSimilarity Scores for '{file1.name}' and '{file2.name}':")
-            print(f"Pitch Similarity: {pitch_similarity:.2f}% - {pitch_interpretation}")
-            print(f"Rhythm Similarity: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
-        
-        elif choice == '2':
+        if choice == '1a':
+            # Show edit distance matrices
             plot_matrix_as_table(pitch_cost_matrix, pitch_ngrams1, pitch_ngrams2,
                                "Pitch Edit Distance Matrix",
                                is_similarity=False,
                                song1=file1.name, song2=file2.name,
-                               forced_diagonal=best_shift)
+                               forced_diagonal=best_shift,
+                               ngram_length=pitch_ngram_len)
             
             plot_matrix_as_table(rhythm_cost_matrix, rhythm_ngrams1, rhythm_ngrams2,
                                "Rhythm Edit Distance Matrix",
                                is_similarity=False,
                                song1=file1.name, song2=file2.name,
-                               forced_diagonal=best_shift)
+                               forced_diagonal=best_shift,
+                               ngram_length=rhythm_ngram_len)
         
-        elif choice == '3':
+        elif choice == '1b':
+            # Show similarity matrices
             plot_matrix_as_table(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
                                "Pitch Similarity Matrix",
                                is_similarity=True,
@@ -408,47 +405,22 @@ def main():
                                song1=file1.name, song2=file2.name,
                                forced_diagonal=best_shift)
         
-        elif choice == '4':
-            plot_heatmap(pitch_cost_matrix, pitch_ngrams1, pitch_ngrams2,
-                        "Pitch Edit Distance Heatmap",
-                        is_similarity=False,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
-            
-            plot_heatmap(rhythm_cost_matrix, rhythm_ngrams1, rhythm_ngrams2,
-                        "Rhythm Edit Distance Heatmap",
-                        is_similarity=False,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
-        
-        elif choice == '5':
-            plot_heatmap(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
-                        "Pitch Similarity Heatmap",
-                        is_similarity=True,
-                        similarity_score=pitch_similarity/100,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
-            
-            plot_heatmap(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
-                        "Rhythm Similarity Heatmap",
-                        is_similarity=True,
-                        similarity_score=rhythm_similarity/100,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
-        
-        elif choice == '6':
-            # Show all visualizations
+        elif choice == '1c':
+            # Show both matrix types
             print("\nEdit Distance Matrices:")
             plot_matrix_as_table(pitch_cost_matrix, pitch_ngrams1, pitch_ngrams2,
                                "Pitch Edit Distance Matrix",
                                is_similarity=False,
                                song1=file1.name, song2=file2.name,
-                               forced_diagonal=best_shift)
+                               forced_diagonal=best_shift,
+                               ngram_length=pitch_ngram_len)
+            
             plot_matrix_as_table(rhythm_cost_matrix, rhythm_ngrams1, rhythm_ngrams2,
                                "Rhythm Edit Distance Matrix",
                                is_similarity=False,
                                song1=file1.name, song2=file2.name,
-                               forced_diagonal=best_shift)
+                               forced_diagonal=best_shift,
+                               ngram_length=rhythm_ngram_len)
             
             print("\nSimilarity Matrices:")
             plot_matrix_as_table(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
@@ -457,24 +429,61 @@ def main():
                                similarity_score=pitch_similarity/100,
                                song1=file1.name, song2=file2.name,
                                forced_diagonal=best_shift)
+            
             plot_matrix_as_table(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
                                "Rhythm Similarity Matrix",
                                is_similarity=True,
                                similarity_score=rhythm_similarity/100,
                                song1=file1.name, song2=file2.name,
                                forced_diagonal=best_shift)
+        
+        elif choice == '2':
+            # Show similarity heatmaps
+            plot_heatmap(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
+                        "Pitch Similarity Heatmap",
+                        is_similarity=True,
+                        similarity_score=pitch_similarity/100,
+                        song1=file1.name, song2=file2.name,
+                        forced_diagonal=best_shift)
             
-            print("\nEdit Distance Heatmaps:")
-            plot_heatmap(pitch_cost_matrix, pitch_ngrams1, pitch_ngrams2,
-                        "Pitch Edit Distance Heatmap",
-                        is_similarity=False,
+            plot_heatmap(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
+                        "Rhythm Similarity Heatmap",
+                        is_similarity=True,
+                        similarity_score=rhythm_similarity/100,
                         song1=file1.name, song2=file2.name,
                         forced_diagonal=best_shift)
-            plot_heatmap(rhythm_cost_matrix, rhythm_ngrams1, rhythm_ngrams2,
-                        "Rhythm Edit Distance Heatmap",
-                        is_similarity=False,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
+        
+        elif choice == '3':
+            # Show all visualizations
+            print("\nEdit Distance Matrices:")
+            plot_matrix_as_table(pitch_cost_matrix, pitch_ngrams1, pitch_ngrams2,
+                               "Pitch Edit Distance Matrix",
+                               is_similarity=False,
+                               song1=file1.name, song2=file2.name,
+                               forced_diagonal=best_shift,
+                               ngram_length=pitch_ngram_len)
+            
+            plot_matrix_as_table(rhythm_cost_matrix, rhythm_ngrams1, rhythm_ngrams2,
+                               "Rhythm Edit Distance Matrix",
+                               is_similarity=False,
+                               song1=file1.name, song2=file2.name,
+                               forced_diagonal=best_shift,
+                               ngram_length=rhythm_ngram_len)
+            
+            print("\nSimilarity Matrices and Heatmaps:")
+            plot_matrix_as_table(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
+                               "Pitch Similarity Matrix",
+                               is_similarity=True,
+                               similarity_score=pitch_similarity/100,
+                               song1=file1.name, song2=file2.name,
+                               forced_diagonal=best_shift)
+            
+            plot_matrix_as_table(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
+                               "Rhythm Similarity Matrix",
+                               is_similarity=True,
+                               similarity_score=rhythm_similarity/100,
+                               song1=file1.name, song2=file2.name,
+                               forced_diagonal=best_shift)
             
             print("\nSimilarity Heatmaps:")
             plot_heatmap(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
@@ -483,6 +492,7 @@ def main():
                         similarity_score=pitch_similarity/100,
                         song1=file1.name, song2=file2.name,
                         forced_diagonal=best_shift)
+            
             plot_heatmap(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
                         "Rhythm Similarity Heatmap",
                         is_similarity=True,
@@ -490,8 +500,7 @@ def main():
                         song1=file1.name, song2=file2.name,
                         forced_diagonal=best_shift)
         
-        elif choice == '7':
-            # Show final results before exiting
+        elif choice == '4':
             print(f"\nFinal Similarity Analysis Results for '{file1.name}' and '{file2.name}':")
             print(f"Pitch Similarity: {pitch_similarity:.2f}% - {pitch_interpretation}")
             print(f"Rhythm Similarity: {rhythm_similarity:.2f}% - {rhythm_interpretation}")
