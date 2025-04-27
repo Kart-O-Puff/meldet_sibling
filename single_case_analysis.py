@@ -10,7 +10,9 @@ import seaborn as sns
 
 def get_user_input() -> Tuple[int, int]:
     """Get window size and step size from user."""
-    window_size = int(input("Enter window size (e.g., 3): "))
+    print("\nNote: The n-gram length will be (window size - 1).")
+    print("Example: If window size = 5, the n-gram length will be 4 for relative sequences.")
+    window_size = int(input("Enter window size (e.g., 5 for n-gram length of 4): "))
     step_size = int(input("Enter step size (e.g., 1): "))
     return window_size, step_size
 
@@ -70,10 +72,11 @@ def calculate_relative_rhythm(durations: List[float]) -> List[float]:
         return []
 
 def generate_ngrams(sequence: List, window_size: int, step_size: int) -> List[List]:
-    """Generate n-grams from sequence."""
+    """Generate n-grams from sequence using window_size-1 as actual n-gram length."""
+    ngram_length = window_size - 1
     ngrams = []
-    for i in range(0, len(sequence) - window_size + 1, step_size):
-        ngram = sequence[i:i + window_size]
+    for i in range(0, len(sequence) - ngram_length + 1, step_size):
+        ngram = sequence[i:i + ngram_length]
         ngrams.append(ngram)
     return ngrams
 
@@ -118,16 +121,16 @@ def calculate_similarity_score(matrix, forced_shift=None):
 def create_cost_matrix(seq1: List[List], seq2: List[List]) -> Tuple[np.ndarray, int]:
     """Create cost matrix and calculate edit distances between sequences."""
     m, n = len(seq1), len(seq2)
-    cost_matrix = np.zeros((m, n), dtype=np.int32)  # Changed to integer type
+    cost_matrix = np.zeros((m, n), dtype=np.int32)
     
-    # Get n-gram length
+    # Get n-gram length (equal to window_size - 1)
     ngram_length = len(seq1[0]) if seq1 else 0
     
     for i in range(m):
         for j in range(n):
             # Count differences between sequences
             differences = sum(1 for x, y in zip(seq1[i], seq2[j]) if x != y)
-            cost_matrix[i][j] = int(differences)  # Ensure integer values
+            cost_matrix[i][j] = int(differences)
             
     return cost_matrix, ngram_length
 
@@ -144,12 +147,14 @@ def interpret_similarity(similarity_score: float) -> str:
 
 def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
     """Visualize similarity/distance matrix with detailed values."""
-    fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(14, 8))
+    # Create figure with larger size to accommodate labels
+    fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(20, 14))
     ax_table.axis('tight')
     ax_table.axis('off')
     
-    col_labels = [f'SB_{i}:{val}' for i, val in enumerate(seq2)]
-    row_labels = [f'SA_{i}:{val}' for i, val in enumerate(seq1)]
+    # Format labels with proper spacing
+    col_labels = [f'SB_{i}:{str(val)[:15]}' for i, val in enumerate(seq2)]  # Allow longer label text
+    row_labels = [f'SA_{i}:{str(val)[:15]}' for i, val in enumerate(seq1)]
     
     if is_similarity:
         cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
@@ -162,17 +167,43 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
                           cellLoc='center',
                           loc='center')
     
+    # Adjust cell properties for better visibility
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)  # Increased from 8 to 12
+    
+    # Set cell sizes and format
+    cell_height = 0.08
+    cell_width = 0.12
+    
+    for pos, cell in table._cells.items():
+        cell.set_height(cell_height)
+        cell.set_width(cell_width)
+        cell.PAD = 0.02
+        
+        # Remove borders for row and column labels
+        if pos[0] == 0 or pos[1] == -1:  # Column or row headers
+            cell.set_edgecolor('none')
+            if pos[0] == 0:  # Column headers
+                cell.set_height(cell_height * 4)  # Increased height for column labels
+                cell.get_text().set_rotation(45)
+                cell.get_text().set_ha('right')
+                cell.get_text().set_va('bottom')
+                cell.get_text().set_fontsize(12)  # Header font size
+    
+    # Adjust layout with more space for labels
+    plt.subplots_adjust(left=0.5, right=0.85, top=0.85, bottom=0.3)
+    
     if is_similarity:
         norm = plt.Normalize(vmin=0, vmax=1)
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
         cmap = plt.cm.viridis
     else:
-        max_edit_distance = ngram_length if ngram_length else 7
+        max_edit_distance = ngram_length
         norm = plt.Normalize(vmin=0, vmax=max_edit_distance)
         colorbar_label = f'Edit Distance\n(0: Most Similar, {max_edit_distance}: Most Different)'
         cmap = plt.cm.viridis_r
     
-    # Color cells based on values
+    # Color cells and mark diagonal
     for i in range(len(seq1)):
         for j in range(len(seq2)):
             cell = table[i+1, j]
@@ -190,19 +221,20 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
                     cell.set_edgecolor('red')
                     cell.set_linewidth(2)
     
+    # Adjust layout
+    plt.subplots_adjust(left=0.2, top=0.85, bottom=0.2)
+    
     cmap_obj = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
     fig.colorbar(cmap_obj, cax=ax_colorbar, label=colorbar_label)
     
-    table.auto_set_font_size(False)
-    table.set_fontsize(9)
-    table.scale(1.2, 1.5)
-    
     full_title = f"{title}\n"
     if song1 and song2:
-        full_title += f"{song1} vs {song2}\n"
+        full_title += f"Song A: {song1} vs Song B: {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
-    ax_table.set_title(full_title)
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
+    title_obj = ax_table.set_title(full_title, pad=50, y=1.5)
+    title_obj.set_fontsize(14)  # Increased title font size
     
     plt.tight_layout()
     plt.show()
@@ -210,24 +242,28 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
 def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
     """Plot similarity/distance matrix as a heatmap."""
     plt.figure(figsize=(10, 8))
+    plt.rcParams.update({'font.size': 12})  # Base font size
     
     if is_similarity:
         vmin, vmax = 0, 1
         cmap = 'viridis'
         cbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
     else:
-        max_edit_distance = ngram_length if ngram_length else 7
+        max_edit_distance = ngram_length
         vmin, vmax = 0, max_edit_distance
         cmap = 'viridis_r'
         cbar_label = f'Edit Distance\n(0: Most Similar, {max_edit_distance}: Most Different)'
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
-    plt.colorbar(im, label=cbar_label)
-    plt.xlabel(f"Song B: {song2}")
-    plt.ylabel(f"Song A: {song1}")
+    cbar = plt.colorbar(im)
+    cbar.set_label(cbar_label, fontsize=12)
+    cbar.ax.tick_labels.set_fontsize(12)
     
-    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))])
-    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))])
+    plt.xlabel(f"Song B: {song2}", fontsize=12)
+    plt.ylabel(f"Song A: {song1}", fontsize=12)
+    
+    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))], fontsize=12)
+    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))], fontsize=12)
     
     if forced_diagonal is not None:
         m, n = matrix.shape
@@ -240,14 +276,15 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
             plt.plot(range(min_len),
                     range(forced_diagonal, forced_diagonal + min_len),
                     'rx-', markersize=8, linewidth=2, label='Best diagonal')
-        plt.legend()
+        plt.legend(fontsize=12)
     
     full_title = f"{title}\n"
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
-    plt.title(full_title)
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
+    plt.title(full_title, pad=20, fontsize=14)
     
     plt.tight_layout()
     plt.show()

@@ -217,17 +217,23 @@ def plot_runtime_comparison(results):
     approaches = list(results.keys())
     avg_times = [results[app]['avg_time'] * 1000 for app in approaches]
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 8))
+    plt.rcParams.update({'font.size': 14})  # Set base font size
+    
     bars = plt.bar(approaches, avg_times)
     
-    plt.ylabel('Average Time per Operation (ms)')
-    plt.title('Runtime Comparison Across Approaches')
+    plt.ylabel('Average Time per Operation (ms)', fontsize=16)
+    plt.title('Runtime Comparison Across Approaches', fontsize=18, pad=20)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     
     for bar in bars:
         height = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.3f}ms',
-                ha='center', va='bottom')
+                ha='center', va='bottom',
+                fontsize=16,
+                fontweight='bold')
     
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -244,6 +250,7 @@ def plot_size_impact(results):
     - Y-axis: execution time in milliseconds
     """
     plt.figure(figsize=(12, 6))
+    plt.rcParams.update({'font.size': 14})  # Set base font size
     
     for approach, data in results.items():
         sizes = [(s1 + s2)/2 for s1, s2, _ in data['times_per_size']]
@@ -256,10 +263,12 @@ def plot_size_impact(results):
         p = np.poly1d(z)
         plt.plot(sizes, p(sizes), '--', alpha=0.8)
     
-    plt.xlabel('Average Sequence Length')
-    plt.ylabel('Time (ms)')
-    plt.title('Runtime vs Sequence Size')
-    plt.legend()
+    plt.xlabel('Average Sequence Length', fontsize=16)
+    plt.ylabel('Time (ms)', fontsize=16)
+    plt.title('Runtime vs Sequence Size', fontsize=18, pad=20)
+    plt.legend(fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.show()

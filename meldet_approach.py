@@ -211,7 +211,7 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
         cmap = plt.cm.viridis
     else:
-        max_edit_distance = ngram_length if ngram_length else 7
+        max_edit_distance = ngram_length
         norm = plt.Normalize(vmin=0, vmax=max_edit_distance)
         colorbar_label = f'Edit Distance\n(0: Most Similar, {max_edit_distance}: Most Different)'
         cmap = plt.cm.viridis_r
