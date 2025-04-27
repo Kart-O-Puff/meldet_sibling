@@ -4,8 +4,8 @@ Hungarian Algorithm Approach: Melodic Similarity Detection using N-gram Analysis
 This module implements a melodic similarity detection approach that combines:
 1. N-gram sequence analysis
 2. Edit distance computation
-3. Logarithmic similarity transformation
-4. Hungarian Algorithm for optimal matching
+3. Normalization of edit distances with log transformation
+4. Hungarian Algorithm for optimal matching and assigning of similarity scores
 
 Key Components:
 - Sequence Preprocessing: Converts melodies into relative pitch and rhythm sequences
@@ -23,34 +23,76 @@ from pathlib import Path
 from scipy.optimize import linear_sum_assignment
 
 def load_sequences_from_library():
-    """Load and parse the preprocessed melody library from CSV."""
+    """
+    Load and parse the preprocessed melody library from CSV.
+    
+    The library contains:
+    - Relative pitch sequences: Representing melodic intervals
+    - Relative rhythm sequences: Representing duration patterns
+    - Case information: Grouping related song pairs
+    - Rulings: Expert decisions on plagiarism cases
+    
+    Returns:
+    - DataFrame containing parsed sequences and metadata
+    """
     try:
+        # Get absolute path and verify file exists
         csv_path = Path(__file__).parent / "MCIC_Dataset" / "MCIC_Preprocessed" / "melody_library_symbolic.csv"
         if not csv_path.exists():
             raise FileNotFoundError(f"Cannot find file: {csv_path}")
         
+        # Read CSV with explicit encoding and error handling
         df = pd.read_csv(csv_path, encoding='cp1252', on_bad_lines='skip')
         if df.empty:
             raise ValueError("CSV file is empty")
             
         print(f"Successfully loaded {len(df)} rows from {csv_path}")
         
+        # Convert string representations back to actual lists
         df['Relative Pitch'] = df['Relative Pitch'].apply(ast.literal_eval)
         df['Relative Rhythm'] = df['Relative Rhythm'].apply(ast.literal_eval)
         
+        # Ensure 'Ruling' column exists
         if 'Category' in df.columns and 'Ruling' not in df.columns:
             df['Ruling'] = df['Category']
             df = df.drop('Category', axis=1)
         
         return df
         
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Please ensure melody_library.csv exists in MCIC_Dataset/MCIC_Preprocessed/")
+        raise
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty")
+        raise
     except Exception as e:
-        print(f"Error loading CSV: {e}")
+        print(f"Unexpected error loading CSV: {e}")
         raise
 
 def compare_sequences(seq1, seq2):
-    """Compare individual n-gram sequences and count differences."""
+    """
+    Compare individual n-gram sequences and count differences.
+    
+    Implementation:
+    1. Zips corresponding elements from both sequences
+    2. Counts positions where elements differ
+    3. Returns total number of differences
+    
+    This forms the basis for the edit distance calculation.
+    """
     return sum(1 for x, y in zip(seq1, seq2) if x != y)
+
+def interpret_similarity(similarity_score: float) -> str:
+    """Interpret similarity score."""
+    if similarity_score >= 75:
+        return "Very High Similarity"
+    elif similarity_score >= 50:
+        return "High Similarity"
+    elif similarity_score >= 25:
+        return "Moderate Similarity"
+    else:
+        return "Low Similarity"
 
 def create_cost_matrix(seq1_grams, seq2_grams):
     """Calculate edit distance matrix between two n-gram sequences."""
@@ -83,7 +125,18 @@ def calculate_log_transform_distance(value, max_d):
         return 0.0
 
 def log_transform_distances(distance_matrix, ngram_length):
-    """Convert entire distance matrix to similarity scores."""
+    """
+    Transform edit distance to similarity score using logarithmic scaling.
+    
+    Formula: similarity = 1 - log2(1 + d) / log2(1 + max_d)
+    where:
+    - d: edit distance value
+    - max_d: maximum possible distance (n-gram length)
+    
+    Properties:
+    - Bounded in [0,1] range
+    - Non-linear scaling emphasizing smaller differences
+    """
     similarity_matrix = np.zeros_like(distance_matrix, dtype=float)
     max_distance = ngram_length
     
@@ -130,7 +183,6 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
         cmap = plt.cm.viridis
     else:
-        # Use the length of a single n-gram sequence as max value
         ngram_length = len(seq1[0]) if seq1 else len(seq2[0])
         norm = plt.Normalize(vmin=0, vmax=ngram_length)
         colorbar_label = f'Edit Distance\n(0: Most Similar, {ngram_length}: Most Different)'
@@ -163,10 +215,10 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
     ax_table.set_title(full_title)
     
-    plt.tight_layout()
     plt.show()
 
 def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score=None, song1="", song2=""):
@@ -180,8 +232,12 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
     
-    plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
-    plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
+    plt.xlabel(f"Song B: {song2}", fontsize=12)
+    plt.ylabel(f"Song A: {song1}", fontsize=12)
+    
+    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))], 
+               rotation=45, ha='right', fontsize=7)
+    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))], fontsize=7)
     
     row_ind, col_ind = linear_sum_assignment(-matrix)
     plt.plot(col_ind, row_ind, 'rx-', markersize=8, linewidth=2, label='Optimal assignment')
@@ -192,8 +248,9 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
-    plt.title(full_title)
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
+    plt.title(full_title, pad=20, fontsize=14)
     
     plt.tight_layout()
     plt.show()
@@ -206,6 +263,7 @@ def analyze_case(df, case_number, show_visualizations=False):
         print(f"Error: Case {case_number} does not have exactly 2 songs")
         return
     
+    # Get sequences
     seq1_pitch = case_data.loc[0, 'Relative Pitch']
     seq2_pitch = case_data.loc[1, 'Relative Pitch']
     seq1_rhythm = case_data.loc[0, 'Relative Rhythm']
@@ -213,6 +271,7 @@ def analyze_case(df, case_number, show_visualizations=False):
     song1_title = case_data.loc[0, 'File Name']
     song2_title = case_data.loc[1, 'File Name']
     
+    # Create matrices
     pitch_distances, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
     rhythm_distances, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
     
@@ -276,6 +335,8 @@ def analyze_all_cases(df, show_plots=False):
         seq1_rhythm = case_data.loc[0, 'Relative Rhythm']
         seq2_rhythm = case_data.loc[1, 'Relative Rhythm']
         
+        
+        # Create cost matrices and transform to similarities
         pitch_matrix, pitch_ngram_len = create_cost_matrix(seq1_pitch, seq2_pitch)
         rhythm_matrix, rhythm_ngram_len = create_cost_matrix(seq1_rhythm, seq2_rhythm)
         
@@ -295,6 +356,7 @@ def analyze_all_cases(df, show_plots=False):
         })
         
         if show_plots:
+            # Show edit distance and similarity matrix tables
             plot_matrix_as_table(pitch_matrix, seq1_pitch, seq2_pitch, 
                            f"Pitch Cost Matrix - {case} ({ruling})\nSimilarity Score: {pitch_similarity}",
                            is_similarity=True,

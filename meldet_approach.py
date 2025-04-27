@@ -4,8 +4,8 @@ MelDet Approach: Melodic Similarity Detection using N-gram Analysis and Edit Dis
 This module implements a melodic similarity detection approach that combines:
 1. N-gram sequence analysis
 2. Edit distance computation
-3. Logarithmic similarity transformation
-4. Diagonal alignment scoring
+3. Normalization of edit distances with log transformation
+4. Sliding Diagonal Matching for assigning of similarity scores
 
 Key Components:
 - Sequence Preprocessing: Converts melodies into relative pitch and rhythm sequences
@@ -17,8 +17,8 @@ Key Components:
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns  # Added for heatmap visualization
-import ast  # for safely evaluating string representations of lists
+import seaborn as sns 
+import ast
 from pathlib import Path
 
 def load_sequences_from_library():
@@ -82,12 +82,22 @@ def compare_sequences(seq1, seq2):
     """
     return sum(1 for x, y in zip(seq1, seq2) if x != y)
 
+def interpret_similarity(similarity_score: float) -> str:
+    """Interpret similarity score."""
+    if similarity_score >= 75:
+        return "Very High Similarity"
+    elif similarity_score >= 50:
+        return "High Similarity"
+    elif similarity_score >= 25:
+        return "Moderate Similarity"
+    else:
+        return "Low Similarity"
+
 def create_cost_matrix(seq1_grams, seq2_grams):
     """Calculate edit distance matrix between two n-gram sequences."""
     m, n = len(seq1_grams), len(seq2_grams)
-    cost_matrix = np.zeros((m, n), dtype=np.int32)  # Changed to integer type
+    cost_matrix = np.zeros((m, n), dtype=np.int32)
     
-    # Get n-gram length from first non-None sequence
     ngram_length = None
     for seq in seq1_grams + seq2_grams:
         if seq is not None:
@@ -99,7 +109,6 @@ def create_cost_matrix(seq1_grams, seq2_grams):
     
     for i in range(m):
         for j in range(n):
-            # Count differences between two sequences
             differences = sum(1 for x, y in zip(seq1_grams[i], seq2_grams[j]) 
                             if x != y)
             cost_matrix[i][j] = int(differences)  # Ensure integer values
@@ -110,7 +119,7 @@ def calculate_log_transform_distance(value, max_d):
     """
     Transform edit distance to similarity score using logarithmic scaling.
     
-    Formula: similarity = 1 - log(1 + d) / log(1 + max_d)
+    Formula: similarity = 1 - log2(1 + d) / log2(1 + max_d)
     where:
     - d: edit distance value
     - max_d: maximum possible distance (n-gram length)
@@ -118,7 +127,6 @@ def calculate_log_transform_distance(value, max_d):
     Properties:
     - Bounded in [0,1] range
     - Non-linear scaling emphasizing smaller differences
-    - Preserves relative ordering of distances
     """
     try:
         log_similarity = 1 - (np.log2(1 + value) / np.log2(1 + max_d))
@@ -206,6 +214,7 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
                           cellLoc='center',
                           loc='center')
     
+    
     if is_similarity:
         norm = plt.Normalize(vmin=0, vmax=1)
         colorbar_label = 'Similarity Value\n(0: Most Different, 1: Most Similar)'
@@ -245,13 +254,13 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
     ax_table.set_title(full_title)
     
-    plt.tight_layout()
     plt.show()
 
-def plot_heatmap(matrix, seq1, seq2, title, similarity_score=None, song1="", song2="", forced_diagonal=None):
+def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score=None, song1="", song2="", forced_diagonal=None):
     """Plot similarity matrix as a heatmap with forced diagonal."""
     plt.figure(figsize=(10, 8))
     
@@ -262,11 +271,13 @@ def plot_heatmap(matrix, seq1, seq2, title, similarity_score=None, song1="", son
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
-    plt.xlabel(f"Song B: {song2}")
-    plt.ylabel(f"Song A: {song1}")
     
-    plt.xticks(range(len(seq2)), [f'S2_{i}' for i in range(len(seq2))])
-    plt.yticks(range(len(seq1)), [f'S1_{i}' for i in range(len(seq1))])
+    plt.xlabel(f"Song B: {song2}", fontsize=12)
+    plt.ylabel(f"Song A: {song1}", fontsize=12)
+    
+    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))], 
+               rotation=45, ha='right', fontsize=7)
+    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))], fontsize=7)
     
     if forced_diagonal is not None:
         m, n = matrix.shape
@@ -285,8 +296,9 @@ def plot_heatmap(matrix, seq1, seq2, title, similarity_score=None, song1="", son
     if song1 and song2:
         full_title += f"{song1} vs {song2}\n"
     if similarity_score is not None:
-        full_title += f"Similarity Score: {similarity_score * 100:.2f}%"
-    plt.title(full_title)
+        interpretation = interpret_similarity(similarity_score * 100)
+        full_title += f"Similarity Score: {similarity_score * 100:.2f}% - {interpretation}"
+    plt.title(full_title, pad=20, fontsize=14)
     
     plt.tight_layout()
     plt.show()

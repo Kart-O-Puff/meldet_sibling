@@ -83,7 +83,6 @@ def sliding_window(sequence, window_size=8, step_size=4):
     ]
     return np.array(windows)
 
-# Rest of the functions remain the same as in data_preprocess.py
 def get_file_info(file_path, base_folder):
     """Extract file information."""
     rel_path = os.path.relpath(os.path.dirname(file_path), base_folder)
@@ -224,7 +223,7 @@ def process_folder(input_folder, abs_output_folder, rel_output_folder, library_p
     
     # Get user parameters for sliding window
     window_size, step_size = get_sequence_parameters()
-    print(f"\nUsing window size: {window_size}, step size: {step_size}")
+    print(f"\nWith window size: {window_size}, step size: {step_size}, we obtain the n-gram length of window size -1 for the relative pitch and rhythm sequences.")
     
     for ruling in ["Plagiarism", "No_Plagiarism"]:
         ruling_input = os.path.join(input_folder, ruling)
@@ -250,7 +249,6 @@ def process_folder(input_folder, abs_output_folder, rel_output_folder, library_p
                 process_file(midi_path, abs_output_dir, rel_output_dir, file[:-4], 
                            library, file_info, window_size, step_size)
     
-    # Store both library versions with correct filenames
     store_library(library_path, library)
     unsegmented_path = os.path.join(os.path.dirname(library_path), "unsegmented_melody_library_symbolic.csv")
     store_library_unsegmented(unsegmented_path, library)
@@ -264,30 +262,28 @@ def process_folder(input_folder, abs_output_folder, rel_output_folder, library_p
 def get_sequence_parameters():
     """Get user input for sliding window parameters."""
     while True:
-        print("\nSelect window size for n-gram sequences:")
-        print("1. Window size = 2 (Minimum)")
-        print("2. Window size = 3")
-        print("3. Window size = 4")
-        print("4. Window size = 5")
-        print("5. Window size = 6")
-        print("6. Window size = 7")
-        print("7. Window size = 8 (Maximum)")
+        print("\nSelect window size for data preprocessing:")
+        print("Window size = 3")
+        print("Window size = 4")
+        print("Window size = 5")
+        print("Window size = 6")
+        print("Window size = 7")
         
         try:
-            choice = int(input("\nEnter your choice (1-7): "))
+            choice = int(input("\nEnter your choice (3-7): "))
             if 1 <= choice <= 7:
-                window_size = choice + 1
+                window_size = choice
                 break
-            print("Invalid choice! Please select 1-7.")
+            print("Invalid choice! Please select 3-7.")
         except ValueError:
-            print("Invalid input! Please enter a number between 1-7.")
+            print("Invalid input! Please enter a number between 3-7.")
     
     while True:
         print("\nSelect step size for sliding window:")
         print("1. Step size = 1 (Maximum overlap)")
         print("2. Step size = 2")
         print("3. Step size = 3")
-        print("4. Step size = 4 (Default)")
+        print("4. Step size = 4")
         print("5. Step size = 5 (Minimum overlap)")
         
         try:
