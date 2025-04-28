@@ -1,0 +1,9 @@
+Feature,Approach,Mean_Rank,Kendalls_W,P_Value,Significant
+Pitch,Hungarian,2.60,0.0047,0.9497,No
+Pitch,MelDet,2.75,0.0047,0.9497,No
+Pitch,SumCommon,2.45,0.0047,0.9497,No
+Pitch,Tversky,2.20,0.0047,0.9497,No
+Rhythm,Hungarian,2.60,0.0014,0.9906,No
+Rhythm,MelDet,2.40,0.0014,0.9906,No
+Rhythm,SumCommon,2.38,0.0014,0.9906,No
+Rhythm,Tversky,2.62,0.0014,0.9906,No

@@ -275,9 +275,7 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score
     plt.xlabel(f"Song B: {song2}", fontsize=12)
     plt.ylabel(f"Song A: {song1}", fontsize=12)
     
-    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))], 
-               rotation=45, ha='right', fontsize=7)
-    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))], fontsize=7)
+
     
     if forced_diagonal is not None:
         m, n = matrix.shape

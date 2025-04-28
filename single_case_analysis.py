@@ -257,13 +257,11 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     cbar = plt.colorbar(im)
     cbar.set_label(cbar_label, fontsize=12)
-    cbar.ax.tick_labels.set_fontsize(12)
     
     plt.xlabel(f"Song B: {song2}", fontsize=12)
     plt.ylabel(f"Song A: {song1}", fontsize=12)
     
-    plt.xticks(range(len(seq2)), [f'SB_{i}' for i in range(len(seq2))], fontsize=12)
-    plt.yticks(range(len(seq1)), [f'SA_{i}' for i in range(len(seq1))], fontsize=12)
+
     
     if forced_diagonal is not None:
         m, n = matrix.shape
