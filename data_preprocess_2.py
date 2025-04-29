@@ -22,7 +22,7 @@ def extract_absolute_pitch_and_rhythm(midi_file):
                     
                     # Convert duration to symbolic label
                     duration_type = note.duration.type
-                    if duration_type in ['whole', 'half', 'quarter', 'eighth', '16th', '32nd']:
+                    if duration_type in ['whole', 'half', 'quarter', 'eighth', '16th', '32nd', 'dotted half', 'dotted quarter', 'dotted eighth']:
                         absolute_rhythm_sequence.append(duration_type)
                     else:
                         # Handle complex durations by converting to quarter note ratio
@@ -37,8 +37,14 @@ def extract_absolute_pitch_and_rhythm(midi_file):
                             absolute_rhythm_sequence.append('eighth')
                         elif quarter_length >= 0.25:
                             absolute_rhythm_sequence.append('16th')
-                        else:
+                        elif quarter_length >= 0.125:
                             absolute_rhythm_sequence.append('32nd')
+                        elif quarter_length >= 3.0:
+                            absolute_rhythm_sequence.append('dotted half')
+                        elif quarter_length >= 1.5:
+                            absolute_rhythm_sequence.append('dotted quarter')
+                        elif quarter_length >= 0.75:
+                            absolute_rhythm_sequence.append('dotted eighth')
 
         if len(absolute_pitch_sequence) == 0 or len(absolute_rhythm_sequence) == 0:
             raise ValueError("No valid pitch or rhythm data found.")
@@ -64,7 +70,10 @@ def compute_relative_rhythm(rhythm_sequence):
         'quarter': 1.0,
         'eighth': 0.5,
         '16th': 0.25,
-        '32nd': 0.125
+        '32nd': 0.125,
+        'dotted half': 3.0,
+        'dotted quarter': 1.5,
+        'dotted eighth': 0.75
     }
     
     # Convert symbolic durations to numeric values
@@ -73,9 +82,9 @@ def compute_relative_rhythm(rhythm_sequence):
     # Calculate ratio between consecutive durations
     relative_rhythm = np.array([numeric_durations[i+1] / numeric_durations[i] 
                               for i in range(len(numeric_durations) - 1)])
-    return np.around(relative_rhythm, decimals=2)
+    return np.around(relative_rhythm, decimals=3)
 
-def sliding_window(sequence, window_size=8, step_size=4):
+def sliding_window(sequence, window_size=5, step_size=1):
     """Split sequence into overlapping windows."""
     windows = [
         sequence[i : i + window_size]

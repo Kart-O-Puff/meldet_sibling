@@ -35,7 +35,7 @@ def load_midi_file(file_path: str) -> List[Tuple[int, float]]:
         print(f"Error loading MIDI file {file_path}: {str(e)}")
         return []
 
-def extract_features(notes: List[Tuple[int, float]]) -> Tuple[List[int], List[float]]:
+def extract_features(notes: List[Tuple[int, float]]) -> Tuple[List[int], List[str], List[int]]:
     """Extract pitch and rhythm features from notes."""
     pitches = []
     durations = []
@@ -47,9 +47,30 @@ def extract_features(notes: List[Tuple[int, float]]) -> Tuple[List[int], List[fl
             # For chords, use the highest note
             chord_notes = [int(note) for note in pitch.split()]
             pitches.append(max(chord_notes))
-        durations.append(duration)
+            
+        # Convert duration to symbolic label
+        if duration >= 4.0:
+            duration_type = 'whole'
+        elif duration >= 3.0:
+            duration_type = 'dotted half'
+        elif duration >= 2.0:
+            duration_type = 'half'
+        elif duration >= 1.5:
+            duration_type = 'dotted quarter'
+        elif duration >= 1.0:
+            duration_type = 'quarter'
+        elif duration >= 0.75:
+            duration_type = 'dotted eighth'
+        elif duration >= 0.5:
+            duration_type = 'eighth'
+        elif duration >= 0.25:
+            duration_type = '16th'
+        else:
+            duration_type = '32nd'
+            
+        durations.append(duration_type)
     
-    return pitches, durations
+    return pitches, durations, durations  # Return the durations twice since we don't need mapped_durations anymore
 
 def calculate_relative_pitch(pitches: List[int]) -> List[int]:
     """Calculate relative pitch intervals."""
@@ -61,12 +82,28 @@ def calculate_relative_pitch(pitches: List[int]) -> List[int]:
         print(f"Error calculating relative pitch: {e}")
         return []
 
-def calculate_relative_rhythm(durations: List[float]) -> List[float]:
+def compute_relative_rhythm(durations: List[str]) -> List[float]:
     """Calculate relative rhythm ratios."""
     if not durations or len(durations) < 2:
         return []
+    
+    duration_map = {
+        'whole': 4.0,
+        'half': 2.0,
+        'quarter': 1.0,
+        'eighth': 0.5,
+        '16th': 0.25,
+        '32nd': 0.125,
+        'dotted half': 3.0,
+        'dotted quarter': 1.5,
+        'dotted eighth': 0.75
+    }
+    
     try:
-        return [round(b/a, 3) if a != 0 else 0 for a, b in zip(durations[:-1], durations[1:])]
+        numeric_durations = [duration_map[r] for r in durations]
+        relative_rhythm = [round(numeric_durations[i+1] / numeric_durations[i], 3) 
+                         for i in range(len(numeric_durations) - 1)]
+        return relative_rhythm
     except Exception as e:
         print(f"Error calculating relative rhythm: {e}")
         return []
@@ -242,7 +279,15 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
 def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
     """Plot similarity/distance matrix as a heatmap."""
     plt.figure(figsize=(10, 8))
-    plt.rcParams.update({'font.size': 12})  # Base font size
+    plt.rcParams.update({'font.size': 12})
+    
+    # Format sequences for display
+    if isinstance(seq1[0], list):  # For n-grams
+        seq1_labels = [str(s) for s in seq1]
+        seq2_labels = [str(s) for s in seq2]
+    else:  # For single values
+        seq1_labels = [str(round(float(s), 3)) if isinstance(s, (float, str)) else str(s) for s in seq1]
+        seq2_labels = [str(round(float(s), 3)) if isinstance(s, (float, str)) else str(s) for s in seq2]
     
     if is_similarity:
         vmin, vmax = 0, 1
@@ -260,8 +305,6 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=False, similarity_scor
     
     plt.xlabel(f"Song B: {song2}", fontsize=12)
     plt.ylabel(f"Song A: {song1}", fontsize=12)
-    
-
     
     if forced_diagonal is not None:
         m, n = matrix.shape
@@ -292,6 +335,10 @@ def main():
     # Get single case analysis folder path
     base_path = Path(__file__).parent / "Single_Case_Analysis"
     
+    # Ensure 1v1_Reports folder exists
+    reports_folder = base_path / "1v1_Reports"
+    reports_folder.mkdir(exist_ok=True)
+    
     # List MIDI files
     midi_files = list(base_path.glob("*.mid"))
     if len(midi_files) < 2:
@@ -321,16 +368,16 @@ def main():
     notes2 = load_midi_file(str(file2))
     
     # Extract features
-    pitches1, durations1 = extract_features(notes1)
-    pitches2, durations2 = extract_features(notes2)
+    pitches1, durations1, mapped_durations1 = extract_features(notes1)
+    pitches2, durations2, mapped_durations2 = extract_features(notes2)
     
     # Calculate relative sequences
     relative_pitch1 = calculate_relative_pitch(pitches1)
     relative_pitch2 = calculate_relative_pitch(pitches2)
-    relative_rhythm1 = calculate_relative_rhythm(durations1)
-    relative_rhythm2 = calculate_relative_rhythm(durations2)
+    relative_rhythm1 = compute_relative_rhythm(durations1)
+    relative_rhythm2 = compute_relative_rhythm(durations2)
     
-    # Generate n-grams from relative sequences
+    # Generate n-grams for relative sequences
     pitch_ngrams1 = generate_ngrams(relative_pitch1, window_size, step_size)
     pitch_ngrams2 = generate_ngrams(relative_pitch2, window_size, step_size)
     rhythm_ngrams1 = generate_ngrams(relative_rhythm1, window_size, step_size)
@@ -376,14 +423,18 @@ def main():
         'File2': file2.name,
         'Window_Size': window_size,
         'Step_Size': step_size,
-        'Absolute_Pitch_Ngrams_File1': str([list(map(int, pitches1))]),
-        'Absolute_Pitch_Ngrams_File2': str([list(map(int, pitches2))]),
-        'Absolute_Rhythm_Ngrams_File1': str([list(map(float, durations1))]),
-        'Absolute_Rhythm_Ngrams_File2': str([list(map(float, durations2))]),
+        'Absolute_Pitch_File1': str(pitches1),
+        'Absolute_Pitch_File2': str(pitches2),
+        'Absolute_Rhythm_File1': str(durations1),
+        'Absolute_Rhythm_File2': str(durations2),
         'Relative_Pitch_File1': str(relative_pitch1),
         'Relative_Pitch_File2': str(relative_pitch2),
-        'Relative_Rhythm_File1': str(relative_rhythm1),
-        'Relative_Rhythm_File2': str(relative_rhythm2),
+        'Relative_Rhythm_File1': str([round(x, 3) for x in relative_rhythm1]),
+        'Relative_Rhythm_File2': str([round(x, 3) for x in relative_rhythm2]),
+        'Segmented_Pitch_Ngrams_File1': str(pitch_ngrams1),
+        'Segmented_Pitch_Ngrams_File2': str(pitch_ngrams2),
+        'Segmented_Rhythm_Ngrams_File1': str(rhythm_ngrams1),
+        'Segmented_Rhythm_Ngrams_File2': str(rhythm_ngrams2),
         'Pitch_Similarity': f"{pitch_similarity:.2f}%",
         'Pitch_Interpretation': pitch_interpretation,
         'Rhythm_Similarity': f"{rhythm_similarity:.2f}%",
@@ -392,7 +443,7 @@ def main():
     
     # Save results to CSV and set output path
     df = pd.DataFrame([results])
-    output_path = base_path / f"similarity_{file1.stem}_and_{file2.stem}.csv"
+    output_path = reports_folder / f"similarity_{file1.stem}_and_{file2.stem}.csv"
     df.to_csv(output_path, index=False)
     
     # Display results menu
@@ -505,7 +556,7 @@ def main():
                                forced_diagonal=best_shift,
                                ngram_length=rhythm_ngram_len)
             
-            print("\nSimilarity Matrices and Heatmaps:")
+            print("\nSimilarity Matrices:")
             plot_matrix_as_table(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
                                "Pitch Similarity Matrix",
                                is_similarity=True,
@@ -519,21 +570,6 @@ def main():
                                similarity_score=rhythm_similarity/100,
                                song1=file1.name, song2=file2.name,
                                forced_diagonal=best_shift)
-            
-            print("\nSimilarity Heatmaps:")
-            plot_heatmap(pitch_similarities, pitch_ngrams1, pitch_ngrams2,
-                        "Pitch Similarity Heatmap",
-                        is_similarity=True,
-                        similarity_score=pitch_similarity/100,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
-            
-            plot_heatmap(rhythm_similarities, rhythm_ngrams1, rhythm_ngrams2,
-                        "Rhythm Similarity Heatmap",
-                        is_similarity=True,
-                        similarity_score=rhythm_similarity/100,
-                        song1=file1.name, song2=file2.name,
-                        forced_diagonal=best_shift)
         
         elif choice == '4':
             print(f"\nFinal Similarity Analysis Results for '{file1.name}' and '{file2.name}':")
