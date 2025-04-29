@@ -370,13 +370,20 @@ def save_similarity_report(results, output_path):
     df = pd.DataFrame(results)
     df['Pitch Similarity'] = (df['Pitch Similarity'] * 100).round(2)
     df['Rhythm Similarity'] = (df['Rhythm Similarity'] * 100).round(2)
+    
+    # Add interpretation columns
+    df['Pitch Interpretation'] = df['Pitch Similarity'].apply(interpret_similarity)
+    df['Rhythm Interpretation'] = df['Rhythm Similarity'].apply(interpret_similarity)
+    
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
     
     df['Case_Num'] = df['Case'].str.extract(r'(\d+)').astype(int)
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
     
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 
+              'Pitch Similarity', 'Pitch Interpretation',
+              'Rhythm Similarity', 'Rhythm Interpretation']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

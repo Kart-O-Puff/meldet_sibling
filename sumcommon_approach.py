@@ -57,6 +57,17 @@ def calculate_common_elements(seq1, seq2):
     except Exception as e:
         return 0.0
 
+def interpret_similarity(similarity_score: float) -> str:
+    """Interpret similarity score."""
+    if similarity_score >= 75:
+        return "Very High Similarity"
+    elif similarity_score >= 50:
+        return "High Similarity"
+    elif similarity_score >= 25:
+        return "Moderate Similarity"
+    else:
+        return "Low Similarity"
+
 def plot_similarity_comparison(similarities, title, song1, song2):
     """Plot similarity scores for complete n-gram sequence comparison."""
     plt.figure(figsize=(14, 6))  # Increased figure width to accommodate legend
@@ -77,7 +88,7 @@ def plot_similarity_comparison(similarities, title, song1, song2):
     
     # Add info box - moved to the right side
     info_text = (
-        f'Jaccard Similarity Score: {similarities_pct:.2f}%\n'
+        f'Sum Common Similarity Score: {similarities_pct:.2f}% ({interpret_similarity(similarities_pct)})\n'
         f'Method: Complete N-gram Sequence Comparison\n'
         f'(Exact matches of entire n-gram sequences)'
     )
@@ -125,7 +136,8 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
                 f'Total: {common_values[i] + unique_values[i]}',
                 ha='center', va='bottom')
     
-    plt.title(f"{title} N-gram Sequence Analysis\n{song1} vs {song2}\nJaccard Similarity: {similarity_score * 100:.2f}%")
+    plt.title(f"{title} N-gram Sequence Analysis\n{song1} vs {song2}\n"
+              f"Sum Common Similarity Score: {similarity_score * 100:.2f}% ({interpret_similarity(similarity_score * 100)})")
     plt.ylabel('Number of N-gram Sequences')
     plt.grid(True, alpha=0.3)
     
@@ -136,8 +148,8 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'Unique to Song B: {unique_to_s2}\n'
         f'Total Sequences in Song A: {len(seq1_units)}\n'
         f'Total Sequences in Song B: {len(seq2_units)}\n'
-        f'Jaccard Similarity = ({common}/{len(seq1_units) + len(seq2_units) - common})'
-        f' = {similarity_score * 100:.2f}%'
+        f'Sum Common Similarity Score = ({common}/{len(seq1_units) + len(seq2_units) - common})'
+        f' = {similarity_score * 100:.2f}% ({interpret_similarity(similarity_score * 100)})'
     )
     plt.text(1.02, 0.98, info_text,
              transform=plt.gca().transAxes,
@@ -210,8 +222,8 @@ def analyze_case_with_visualization(df, case_number):
     rhythm_score = calculate_common_elements(seq1_rhythm, seq2_rhythm)
     
     print(f"\nFinal Similarity Scores for {case_number}:")
-    print(f"Pitch Similarity: {pitch_score * 100:.2f}%")
-    print(f"Rhythm Similarity: {rhythm_score * 100:.2f}%")
+    print(f"Pitch Similarity: {pitch_score * 100:.2f}% ({interpret_similarity(pitch_score * 100)})")
+    print(f"Rhythm Similarity: {rhythm_score * 100:.2f}% ({interpret_similarity(rhythm_score * 100)})")
     
     print("\nVisualization Options:")
     print("1. Show Pitch Analysis")
@@ -266,14 +278,22 @@ def save_similarity_report(results, output_path):
     df['Pitch Similarity'] = df['Pitch Similarity'] * 100
     df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
     
+    # Add interpretation columns
+    df['Pitch Interpretation'] = df['Pitch Similarity'].apply(interpret_similarity)
+    df['Rhythm Interpretation'] = df['Rhythm Similarity'].apply(interpret_similarity)
+    
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
+    
     # Extract case numbers and sort using raw string
     df['Case_Num'] = df['Case'].str.extract(r'(\d+)').astype(int)
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
+    
     # Reorder columns
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 
+              'Pitch Similarity', 'Pitch Interpretation', 
+              'Rhythm Similarity', 'Rhythm Interpretation']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

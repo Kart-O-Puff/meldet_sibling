@@ -550,33 +550,29 @@ def interactive_menu(df):
             print("Invalid choice!")
 
 def save_similarity_report(results, output_path):
-    """
-    Generate comprehensive analysis report.
-    
-    Report Contents:
-    1. Case identifiers
-    2. Expert rulings (original and binary)
-    3. Song pair information
-    4. Similarity scores (as percentages with 2 decimal places)
-    
-    Format:
-    - CSV file with sorted cases
-    - Standardized column ordering
-    """
+    """Save similarity analysis results to CSV file."""
     df = pd.DataFrame(results)
     
-    # Convert similarity scores to percentages and round to 2 decimal places
-    df['Pitch Similarity'] = (df['Pitch Similarity'] * 100).round(2)
-    df['Rhythm Similarity'] = (df['Rhythm Similarity'] * 100).round(2)
+    # Convert similarity scores to percentages
+    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
+    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    
+    # Add interpretation columns
+    df['Pitch Interpretation'] = df['Pitch Similarity'].apply(interpret_similarity)
+    df['Rhythm Interpretation'] = df['Rhythm Similarity'].apply(interpret_similarity)
     
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
-    # Extract case numbers and sort using raw string for regex
+    
+    # Sort cases properly
     df['Case_Num'] = df['Case'].str.extract(r'(\d+)').astype(int)
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
-    # Reorder columns to put Binary Ruling after Ruling
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
+    
+    # Reorder columns
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 
+              'Pitch Similarity', 'Pitch Interpretation',
+              'Rhythm Similarity', 'Rhythm Interpretation']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")

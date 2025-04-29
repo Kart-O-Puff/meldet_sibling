@@ -79,35 +79,40 @@ def calculate_tversky(seq1, seq2, alpha=None, beta=None):
     except:
         return 0.0
 
-def plot_similarity_comparison(similarity, title, song1, song2):
+def interpret_similarity(similarity_score: float) -> str:
+    """Interpret similarity score."""
+    if similarity_score >= 75:
+        return "Very High Similarity"
+    elif similarity_score >= 50:
+        return "High Similarity"
+    elif similarity_score >= 25:
+        return "Moderate Similarity"
+    else:
+        return "Low Similarity"
+
+def plot_similarity_comparison(similarities, title, song1, song2):
     """Plot similarity value with formula explanation."""
     plt.figure(figsize=(12, 6))
     
     # Convert to percentage for display
-    similarity_pct = similarity * 100
+    similarities_pct = similarities * 100
     
     # Create single bar for similarity score
-    plt.bar(['Tversky Similarity'], [similarity_pct], color='skyblue', alpha=0.6)
+    plt.bar(['Tversky Similarity'], [similarities_pct], color='skyblue', alpha=0.6)
     
     # Add score label
-    plt.text(0, similarity_pct + 2, f'{similarity_pct:.2f}%', ha='center')
+    plt.text(0, similarities_pct + 2, f'{similarities_pct:.2f}%', ha='center')
     
-    plt.title(f"Tversky Analysis\n{title}\n{song1} vs {song2}")
+    plt.title(f"Tversky Similarity Score for \n{title}\n{song1} vs {song2}")
     plt.ylabel("Similarity Score (%)")
     plt.ylim(0, 115)
     plt.grid(True, alpha=0.3)
     
     # Add formula explanation with percentage
     info_text = (
-        f'Tversky Similarity Score: {similarity_pct:.2f}%\n\n'
-        f'Formula:\n'
-        f'|A ∩ B| / (|A ∩ B| + α|A\\B| + β|B\\A|) × 100%\n\n'
-        f'where:\n'
-        f'A, B = sets of n-grams\n'
-        f'|A ∩ B| = common elements\n'
-        f'|A\\B| = elements unique to A\n'
-        f'|B\\A| = elements unique to B\n'
-        f'α, β = weights based on sequence lengths'
+        f'Tversky Similarity Score: {similarities_pct:.2f}% ({interpret_similarity(similarities_pct)})\n'
+        f'Method: Tversky Index (α={alpha}, β={beta})\n'
+        f'(Directional comparison favoring Song A as prototype)'
     )
     
     plt.text(1.05, 0.98, info_text,
@@ -174,14 +179,15 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
     # Format score for display
     similarity_pct = similarity_score * 100
     
-    plt.title(f"{title} N-gram Analysis\n{song1} vs {song2}\nTversky Score: {similarity_pct:.2f}%")
+    plt.title(f"{title} N-gram Sequence Analysis\n{song1} vs {song2}\n"
+              f"Tversky Similarity Score: {similarity_pct:.2f}% ({interpret_similarity(similarity_pct)})")
     plt.ylabel('Number of N-grams')
     plt.legend()
     plt.grid(True, alpha=0.3)
     
     # Add detailed calculation box
     calc_text = (
-        f'Tversky Similarity Calculation:\n\n'
+        f'Tversky Similarity Score Calculation:\n\n'
         f'Set Analysis:\n'
         f'1. Sequence Lengths:\n'
         f'   - Song A: {len1} n-grams\n'
@@ -193,7 +199,7 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'3. Parameters:\n'
         f'   α = {len1}/{len1 + len2} = {alpha:.4f}\n'
         f'   β = {len2}/{len1 + len2} = {beta:.4f}\n\n'
-        f'4. Final Score:\n'
+        f'4. Tversky Similarity Score:\n'
         f'   ({common} / ({common} + {alpha:.4f}*{unique_s1} + {beta:.4f}*{unique_s2})) × 100\n'
         f'   = {similarity_pct:.2f}%'
     )
@@ -253,8 +259,8 @@ def analyze_case_with_visualization(df, case_number):
     rhythm_score = calculate_tversky(seq1_rhythm, seq2_rhythm)
     
     print(f"\nFinal Similarity Scores for {case_number}:")
-    print(f"Pitch Similarity: {pitch_score * 100:.2f}%")
-    print(f"Rhythm Similarity: {rhythm_score * 100:.2f}%")
+    print(f"Pitch Similarity: {pitch_score * 100:.2f}% ({interpret_similarity(pitch_score * 100)})")
+    print(f"Rhythm Similarity: {rhythm_score * 100:.2f}% ({interpret_similarity(rhythm_score * 100)})")
     
     print("\nVisualization Options:")
     print("1. Show Pitch Analysis")
@@ -309,14 +315,22 @@ def save_similarity_report(results, output_path):
     df['Pitch Similarity'] = df['Pitch Similarity'] * 100
     df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
     
+    # Add interpretation columns
+    df['Pitch Interpretation'] = df['Pitch Similarity'].apply(interpret_similarity)
+    df['Rhythm Interpretation'] = df['Rhythm Similarity'].apply(interpret_similarity)
+    
     # Add binary ruling column
     df['Binary Ruling'] = (df['Ruling'] == 'Plagiarism').astype(int)
-    # Extract case numbers and sort
+    
+    # Extract case numbers and sort using raw string
     df['Case_Num'] = df['Case'].str.extract(r'(\d+)').astype(int)
     df = df.sort_values('Case_Num')
     df = df.drop('Case_Num', axis=1)
+    
     # Reorder columns
-    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 'Pitch Similarity', 'Rhythm Similarity']
+    columns = ['Case', 'Ruling', 'Binary Ruling', 'Song A', 'Song B', 
+              'Pitch Similarity', 'Pitch Interpretation', 
+              'Rhythm Similarity', 'Rhythm Interpretation']
     df = df[columns]
     df.to_csv(output_path, index=False)
     print(f"Similarity report saved to: {output_path}")
