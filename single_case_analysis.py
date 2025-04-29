@@ -183,15 +183,25 @@ def interpret_similarity(similarity_score: float) -> str:
         return "Low Similarity"
 
 def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similarity_score=None, song1="", song2="", forced_diagonal=None, ngram_length=None):
-    """Visualize similarity/distance matrix with detailed values."""
-    # Create figure with larger size to accommodate labels
-    fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(20, 14))
+    # Create figure with adaptive size
+    fig, (ax_table, ax_colorbar) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4, 0.2]}, figsize=(16, 10))
     ax_table.axis('tight')
     ax_table.axis('off')
     
-    # Format labels with proper spacing
-    col_labels = [f'SB_{i}:{str(val)[:15]}' for i, val in enumerate(seq2)]  # Allow longer label text
-    row_labels = [f'SA_{i}:{str(val)[:15]}' for i, val in enumerate(seq1)]
+    n_rows, n_cols = len(matrix), len(matrix[0])
+    base_font_size = min(10, 200 / max(n_rows, n_cols))  # Base font size
+    label_font_size = base_font_size * 0.9  # Slightly smaller for labels
+    
+    # Format labels to use multiple lines if needed
+    def format_label(val, prefix):
+        label = str(val)
+        if len(label) > 15:  # Split into multiple lines if too long
+            parts = [label[i:i+15] for i in range(0, len(label), 15)]
+            return f"{prefix}:\n" + "\n".join(parts)
+        return f"{prefix}:{label}"
+    
+    col_labels = [format_label(val, f'SB_{i}') for i, val in enumerate(seq2)]
+    row_labels = [format_label(val, f'SA_{i}') for i, val in enumerate(seq1)]
     
     if is_similarity:
         cell_text = [[f'{val:.4f}' for val in row] for row in matrix]
@@ -204,31 +214,37 @@ def plot_matrix_as_table(matrix, seq1, seq2, title, is_similarity=False, similar
                           cellLoc='center',
                           loc='center')
     
-    # Adjust cell properties for better visibility
+    # Adjust cell sizes and fonts
     table.auto_set_font_size(False)
-    table.set_fontsize(12)  # Increased from 8 to 12
+    table.set_fontsize(base_font_size)
     
-    # Set cell sizes and format
-    cell_height = 0.08
-    cell_width = 0.12
+    cell_height = min(0.08, 1.5 / n_rows)
+    cell_width = min(0.12, 2.0 / n_cols)
+    
+    # Increase width for row labels based on content length
+    max_row_label_length = max(len(str(label)) for label in row_labels)
+    row_label_width = min(0.4, max(0.2, max_row_label_length * 0.015))  # Adjust multiplier as needed
     
     for pos, cell in table._cells.items():
+        if pos[1] == -1:  # Row labels
+            cell.set_width(row_label_width)
+        else:
+            cell.set_width(cell_width)
+        
         cell.set_height(cell_height)
-        cell.set_width(cell_width)
         cell.PAD = 0.02
         
-        # Remove borders for row and column labels
-        if pos[0] == 0 or pos[1] == -1:  # Column or row headers
+        if pos[0] == 0 or pos[1] == -1:  # Headers
             cell.set_edgecolor('none')
             if pos[0] == 0:  # Column headers
-                cell.set_height(cell_height * 4)  # Increased height for column labels
+                cell.set_height(cell_height * 3)  # More height for multiline labels
                 cell.get_text().set_rotation(45)
                 cell.get_text().set_ha('right')
                 cell.get_text().set_va('bottom')
-                cell.get_text().set_fontsize(12)  # Header font size
+            cell.get_text().set_fontsize(label_font_size)
     
-    # Adjust layout with more space for labels
-    plt.subplots_adjust(left=0.5, right=0.85, top=0.85, bottom=0.3)
+    # Adjust margins with more left padding
+    plt.subplots_adjust(left=0.35, right=0.85, top=0.85, bottom=0.2)
     
     if is_similarity:
         norm = plt.Normalize(vmin=0, vmax=1)
