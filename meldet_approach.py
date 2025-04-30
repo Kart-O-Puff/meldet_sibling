@@ -271,6 +271,9 @@ def plot_heatmap(matrix, seq1, seq2, title, is_similarity=True, similarity_score
     
     im = plt.imshow(matrix, cmap=cmap, vmin=vmin, vmax=vmax)
     plt.colorbar(im, label=cbar_label)
+    # Add axis labels using song titles
+    plt.xlabel(f"Song 2: {song2}")
+    plt.ylabel(f"Song 1: {song1}")
     
     plt.xlabel(f"Song B: {song2}", fontsize=12)
     plt.ylabel(f"Song A: {song1}", fontsize=12)
