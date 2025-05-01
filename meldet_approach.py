@@ -8,7 +8,7 @@ This module implements a melodic similarity detection approach that combines:
 4. Sliding Diagonal Matching for assigning of similarity scores
 
 Key Components:
-- Sequence Preprocessing: Converts melodies into relative pitch and rhythm sequences
+- Sequence Preprocessing: Reads the relative pitch and rhythm sequences already in Preprocessed Folder
 - Matrix Analysis: Computes edit distances and similarity scores
 - Visualization: Provides both detailed and heatmap visualizations
 - Scoring: Uses best diagonal alignment for final similarity assessment
@@ -554,8 +554,8 @@ def save_similarity_report(results, output_path):
     df = pd.DataFrame(results)
     
     # Convert similarity scores to percentages
-    df['Pitch Similarity'] = df['Pitch Similarity'] * 100
-    df['Rhythm Similarity'] = df['Rhythm Similarity'] * 100
+    df['Pitch Similarity'] = (df['Pitch Similarity'] * 100).round(2)
+    df['Rhythm Similarity'] = (df['Rhythm Similarity'] * 100).round(2)
     
     # Add interpretation columns
     df['Pitch Interpretation'] = df['Pitch Similarity'].apply(interpret_similarity)

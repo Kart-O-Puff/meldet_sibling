@@ -25,12 +25,12 @@ def calculate_tversky(seq1, seq2, alpha=None, beta=None):
     """
     Calculate original Tversky similarity between tokenized sequences.
     
-    Formula: |A ∩ B| / (|A ∩ B| + α|A\B| + β|B\A|)
+    Formula: |A ∩ B| / (|A ∩ B| + α|A − B| + β|B − A|)
     where:
     - A, B are sets of n-grams from each sequence
     - |A ∩ B| is size of intersection
-    - |A\B| is size of relative complement (elements in A but not in B)
-    - |B\A| is size of relative complement (elements in B but not in A)
+    - |A − B| is size of relative complement (elements in A but not in B)
+    - |B − A| is size of relative complement (elements in B but not in A)
     - α, β are weights for the complements
     """
     try:
@@ -194,8 +194,8 @@ def plot_ngram_analysis(seq1, seq2, title, song1, song2, similarity_score):
         f'   - Song B: {len2} n-grams\n\n'
         f'2. Set Operations:\n'
         f'   |A ∩ B| = {common} (common)\n'
-        f'   |A\\B| = {unique_s1} (unique to Song A)\n'
-        f'   |B\\A| = {unique_s2} (unique to Song B)\n\n'
+        f'   |A − B| = {unique_s1} (unique to Song A)\n'
+        f'   |B − A| = {unique_s2} (unique to Song B)\n\n'
         f'3. Parameters:\n'
         f'   α = {len1}/{len1 + len2} = {alpha:.4f}\n'
         f'   β = {len2}/{len1 + len2} = {beta:.4f}\n\n'
