@@ -170,6 +170,37 @@ def tversky_approach(seq1, seq2):
     denominator = matches + (p1 * differences)
     return matches / denominator if denominator > 0 else 0.0
 
+def cosine_similarity_approach(seq1, seq2):
+    """
+    Cosine Similarity implementation for n-gram sequences.
+    Modified to use direct comparisons like SumCommon and Tversky approaches.
+    Still computes cosine similarity but with a different implementation strategy.
+    """
+    len1, len2 = len(seq1), len(seq2)
+    
+    # Initialize counters for matches and total comparisons
+    matches_seq1 = np.zeros(len1)  # Count matches for each n-gram in seq1
+    matches_seq2 = np.zeros(len2)  # Count matches for each n-gram in seq2
+    
+    # Count matches through direct comparison
+    for i in range(len1):
+        for j in range(len2):
+            if np.array_equal(seq1[i], seq2[j]):
+                matches_seq1[i] += 1
+                matches_seq2[j] += 1
+    
+    # Calculate magnitudes
+    magnitude1 = np.sqrt(np.sum(matches_seq1 ** 2))
+    magnitude2 = np.sqrt(np.sum(matches_seq2 ** 2))
+    
+    # Calculate dot product from matches
+    dot_product = np.sum(matches_seq1)  # Since we counted matches once per sequence
+    
+    if magnitude1 == 0 or magnitude2 == 0:
+        return 0.0
+    
+    return dot_product / (magnitude1 * magnitude2)
+
 def measure_runtime(approach_func, test_cases, iterations=50):
     """
     Runtime Measurement Function
@@ -414,7 +445,8 @@ def main():
             'MelDet': meldet_approach,
             'Hungarian': hungarian_approach,
             'SumCommon': sumcommon_approach,
-            'Tversky': tversky_approach
+            'Tversky': tversky_approach,
+            'Cosine': cosine_similarity_approach
         }
         
         results = {}

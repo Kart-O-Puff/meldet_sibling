@@ -1,0 +1,21 @@
+Case,Ruling,Binary Ruling,Song A,Song B,Pitch Similarity,Pitch Interpretation,Rhythm Similarity,Rhythm Interpretation
+Case_005,No_Plagiarism,0,005_a_Just_an_Old_Fashioned_Mother_and_Dad,005_b_Near_You,0.0,Low Similarity,11.82,Low Similarity
+Case_006,Plagiarism,1,006_a_Tonight_He_Sailed_Again,006_b_I_Love_You_Yes_I_Do,21.32,Low Similarity,80.02,Very High Similarity
+Case_011,Plagiarism,1,011_a_Rendezvous,011_b_I_Dreamed,83.04,Very High Similarity,30.919999999999998,Moderate Similarity
+Case_016,No_Plagiarism,0,016_a_Im_Afraid,016_b_Baby_Love,5.4399999999999995,Low Similarity,23.630000000000003,Low Similarity
+Case_024,Plagiarism,1,024_a_Day_by_Day,024_b_Theme_for_N.B.C.s_Today_Show,22.82,Low Similarity,7.920000000000001,Low Similarity
+Case_036,No_Plagiarism,0,036_a_…wie_ein_Kind,036_b_Fantasy,2.39,Low Similarity,22.29,Low Similarity
+Case_039,Plagiarism,1,039_a_Alone_Again_Naturally,039_b_Alone_Again,0.0,Low Similarity,57.74,High Similarity
+Case_043,Plagiarism,1,043_a_Filion_Family_Welcome,043_b_Here_We_Are_On_the_Road_Again,78.63,Very High Similarity,76.07000000000001,Very High Similarity
+Case_047,No_Plagiarism,0,047_a_Till_You,047_b_Phantom_Song,4.390000000000001,Low Similarity,34.23,Moderate Similarity
+Case_056,No_Plagiarism,0,056_a_What_You_See_is_What_You_Get,056_b_What_U_See_is_What_U_Get_Cant_Make_You_Love_Me,0.0,Low Similarity,47.38,Moderate Similarity
+Case_059,Plagiarism,1,059_a_Dokomademo_Ikou_Lets_Go_Anywhere,059_b_Kinenju_Memorial_Tree,23.21,Low Similarity,39.62,Moderate Similarity
+Case_060,Plagiarism,1,060_a_When_the_Sun_Rises,060_b_Sunrise,20.1,Low Similarity,8.91,Low Similarity
+Case_063,No_Plagiarism,0,063_a_Back_That_Ass_Up,063_b_Back_That_Azz_Up,0.0,Low Similarity,4.97,Low Similarity
+Case_064,No_Plagiarism,0,064_a_Send_My_Comrade_to_Beijing,064_b_Farewell_to_the_Red_Army,10.23,Low Similarity,49.63,Moderate Similarity
+Case_068,Plagiarism,1,068_a_Liangshan_Love_Song,068_b_Bye_Bye_My_Lover,67.42,High Similarity,60.78,High Similarity
+Case_078,Plagiarism,1,078_a_Kookaburra_Sits_in_the_Old_Gum_Tree,078_b_Down_Under,75.38,Very High Similarity,92.24,Very High Similarity
+Case_088,No_Plagiarism,0,088_a_Remind_Me,088_b_Remind_Me,2.8000000000000003,Low Similarity,14.219999999999999,Low Similarity
+Case_090,No_Plagiarism,0,090_a_Need_to_Know,090_b_Love_Me_Again,5.18,Low Similarity,27.72,Moderate Similarity
+Case_107,Plagiarism,1,107_a_Hachigatsu_no_Rainy_August_Rainy,107_b_M.A.K.E.,100.0,Very High Similarity,100.0,Very High Similarity
+Case_116,No_Plagiarism,0,116_a_Lets_Get_It_On,116_b_Thinking_Out_Loud,0.0,Low Similarity,9.45,Low Similarity
