@@ -1,22 +1,54 @@
-# meldet_sibling
-repository nila FeBiLair 👩🏻‍🎓👨🏻‍🎓👩🏻‍🎓
+# MelDet: Melodic Similarity Detection
 
-# How to run
 
-1. pip install -r "requirements.txt"
-2. run the data_preprocess_2.py
-3. run the meldet_approach.py, sumcommon_approach.py and tversky_approach.py
-### you may choose to visualize how the approaches generated similarity scores in the user menu
-### you may also choose to print the result in table form without visualization
-### you may also view the similarity_report_(approach used).csv that stored the computed similarity scores of each approach used
-4. run the evaluation.py
-### you may choose to visualize the results of the evaluation metrics with graph representations
-5. repeat steps 2 to 4 by testing the three approaches on different window size and step size
+This repository implements **MelDet**—a structurally aware melodic similarity scoring model—alongside baseline approaches (Sum Common with Jaccard-like normalization, Original Tversky, Hungarian, and Cosine Similarity). It provides end-to-end scripts for preprocessing MIDI data, computing similarity scores, and evaluating performance. 
 
-## Revisions Made:
-- There is a major change on what python library was used for preprocessing the midi files. Instead of using pretty_midi, we now use music21 since it has better capabilities on expressing rhythmic elements in the form of standard note duration unlike pretty_midi which can only give the rhythm sequence in the form of seconds or time (which greatly impacts the computation for getting relative rhythm sequence).
-- We now compare our proposed approach with Sum Common with Jaccard-like Normalization, the Original Tversky Measure and Hungarian Approach for similarity scoring. 
 
-## Mga Kailangan pang gawin:
-- Mayroon na tayong 15 cases of plagiarism and 15 cases of no plagiarism to be tested (See MCIC_Raw folder).
-- I-test at evaluate ang tatlong approach sa iba't ibang window size at step size.
+## Dependencies
+Python 3.8+
+Music21
+Numpy
+Pandas
+Matplotlib
+Scipy
+Seaborn
+Sklearn.metrics
+Scikit_posthocs
+Ast
+Pathlib
+Csv
+Time
+Typing
+Platform
+Psutil
+Cpuinfo
+
+
+## Usage
+1. Data Preprocessing
+Convert raw MIDI files into n-gram pitch and rhythm sequences: run data_preprocess_2.py.
+
+
+2. Compute Similarity Scores
+Run each approach on processed data:
+meldet_approach.py
+hungarian_approach.py
+sumcommon_approach.py
+tversky_approach.py
+cosine_similarity_approach.py
+Use the interactive menu to visualize similarity matrices or print tables.
+CSV reports are saved in `results/{approach}/similarity_report.csv`.
+
+
+3. Evaluate Model Performance
+Generate evaluation metrics (MSE, AUC-ROC, AUC-PR, F1) and graphs: run evaluation_2.py
+
+
+4. Reproduce Experiments
+Repeat steps 1–3 with different window size and step size values to test performance trade-offs.
+
+
+## Contact
+
+
+For questions or contributions, please open an issue or contact the researchers.
